@@ -1,0 +1,9 @@
+node_modules/
+.env
+k6/users.csv
+k6/room.json
+k6/reports/run-*.json
+k6/reports/history.json
+k6/reports/index.html
+*.log
+.DS_Store

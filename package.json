@@ -1,0 +1,32 @@
+{
+  "name": "appchat-loadtest",
+  "version": "1.0.0",
+  "private": true,
+  "description": "k6/ws load test for appchat — 1000 socket users group send simultaneous",
+  "scripts": {
+    "bootstrap": "node bootstrap/index.js",
+    "prepare": "node coordinator/prepare.js",
+
+    "test:unit": "node --test k6/socketio.test.js",
+    "probe": "k6 run k6/probe.js",
+
+    "k6:run": "k6 run k6/loadtest.js",
+    "k6:docker": "docker compose --profile test run --rm k6",
+
+    "report:build": "node scripts/build-report.js",
+    "report:open": "node scripts/open-report.js",
+    "report": "npm run report:build && npm run report:open",
+
+    "loadtest": "npm run prepare && npm run k6:run && npm run report",
+
+    "test:report": "node --test scripts/build-report.test.js",
+    "reset": "node scripts/reset.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.7",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "ioredis": "^5.4.1",
+    "mongodb": "^6.10.0"
+  }
+}

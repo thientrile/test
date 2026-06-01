@@ -1,0 +1,8 @@
+node_modules
+artillery/report.json
+artillery/report.html
+artillery/users.csv
+*.log
+.git
+scripts/*.ps1
+README.md

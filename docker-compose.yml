@@ -1,0 +1,95 @@
+name: appchat-loadtest
+
+# Profiles:
+#   nginx (default)    — proxy stays up by itself
+#   bootstrap          — one-shot: register USER_COUNT users
+#   test               — coordinator-prepare + k6
+#   reset              — one-shot cleanup
+#
+# Typical flow (use scripts/run-test.ps1 which sequences these):
+#   docker compose up -d nginx redis
+#   docker compose --profile bootstrap run --rm bootstrap
+#   docker compose --profile test run --rm coordinator-prepare
+#   docker compose --profile test run --rm k6
+
+x-node-base: &node-base
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: appchat-loadtest:latest
+  env_file: .env
+  volumes:
+    # k6/ holds users.csv, room.json (written by prepare) and reports/ (read
+    # by build-report) — mounted so node services share files with the host + k6.
+    - ./k6:/app/k6
+  depends_on:
+    nginx:
+      condition: service_started
+    redis:
+      condition: service_healthy
+
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: loadtest-nginx
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Redis local — chỉ còn dùng cho bookkeeping của bootstrap/reset (loadtest:*).
+  # k6 VU path KHÔNG đụng Redis nữa (roomId/users qua file k6/room.json + users.csv).
+  redis:
+    image: redis:7-alpine
+    container_name: loadtest-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "no", "--save", ""]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 5
+
+  bootstrap:
+    <<: *node-base
+    profiles: ["bootstrap"]
+    command: ["node", "bootstrap/index.js"]
+
+  coordinator-prepare:
+    <<: *node-base
+    profiles: ["test"]
+    command: ["node", "coordinator/prepare.js"]
+
+  # k6 load generator — official image, no build. Speaks raw WS + hand-rolled
+  # socket.io framing (k6/socketio.js). MODE=burst (1000 cùng lúc) hoặc
+  # MODE=rate (RATE req/s). RUN_ID/MODE passed per-run via `docker compose run -e`.
+  k6:
+    image: grafana/k6:latest
+    profiles: ["test"]
+    working_dir: /scripts
+    env_file: .env
+    environment:
+      MODE: ${MODE:-burst}
+    volumes:
+      - ./k6:/scripts
+    command: ["run", "/scripts/loadtest.js"]
+    # 10000 VUs each holding a WebSocket → cần RAM + nhiều file descriptor.
+    mem_limit: 6g
+    ulimits:
+      nofile:
+        soft: 1048576
+        hard: 1048576
+    depends_on:
+      nginx:
+        condition: service_started
+
+  reset:
+    <<: *node-base
+    profiles: ["reset"]
+    command: ["node", "scripts/reset.js"]
