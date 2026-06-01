@@ -38,9 +38,13 @@ const THINK_MS = (parseInt(__ENV.THINK_AFTER_GO, 10) || 2) * 1000;
 
 // Each VU sends MSGS_PER_VU messages, paced MSG_INTERVAL_MS apart. Default 1
 // keeps the old single-send burst; set MSGS_PER_VU=100 for the flood test.
-const MSGS_PER_VU = parseInt(__ENV.MSGS_PER_VU, 10) || 1;
+// Set MSGS_PER_VU=0 to hold connected sockets without sending messages.
+const MSGS_PER_VU = Number.isFinite(parseInt(__ENV.MSGS_PER_VU, 10))
+  ? parseInt(__ENV.MSGS_PER_VU, 10)
+  : 1;
 const MSG_INTERVAL_MS = parseInt(__ENV.MSG_INTERVAL_MS, 10) || 100;
 const FLOOD_MS = MSGS_PER_VU * MSG_INTERVAL_MS;
+const HOLD_MS = (parseInt(__ENV.HOLD_SECONDS, 10) || 0) * 1000;
 
 // rate-mode knobs
 const RATE = parseInt(__ENV.RATE, 10) || 100; // requests/sec
@@ -56,6 +60,10 @@ const RUN_ID = __ENV.RUN_ID || `${Date.now()}`;
 
 const JOIN_ACK_TIMEOUT_MS = 5000;
 const SEND_TIMEOUT_MS = 15000;
+const RECONNECT = (__ENV.RECONNECT || '1') !== '0';
+const MAX_RECONNECTS = parseInt(__ENV.MAX_RECONNECTS, 10) || 20;
+const RECONNECT_DELAY_MS = parseInt(__ENV.RECONNECT_DELAY_MS, 10) || 1000;
+const RECONNECT_JITTER_MS = parseInt(__ENV.RECONNECT_JITTER_MS, 10) || 1000;
 
 // ---------------------------------------------------------------------------
 // Init-context data: users.csv + room.json (resolved relative to THIS script)
@@ -124,6 +132,12 @@ const cSendAckFail = new Counter('ws_send_ack_fail');
 const cSendAckTimeout = new Counter('ws_send_ack_timeout');
 const cUpsertTimeout = new Counter('ws_upsert_timeout');
 const cDisconnected = new Counter('ws_disconnected');
+const cCloseExpected = new Counter('ws_close_expected');
+const cCloseUnexpected = new Counter('ws_close_unexpected');
+const cServerDisconnect = new Counter('ws_server_disconnect');
+const cReconnectAttempt = new Counter('ws_reconnect_attempt');
+const cReconnectSuccess = new Counter('ws_reconnect_success');
+const cReconnectExhausted = new Counter('ws_reconnect_exhausted');
 
 // ---------------------------------------------------------------------------
 // Scenario / options — chosen by MODE
@@ -132,6 +146,7 @@ const burstMaxDuration =
   RAMP_S +
   Math.ceil(CONNECT_MARGIN_MS / 1000) +
   Math.ceil(FLOOD_MS / 1000) +
+  Math.ceil(HOLD_MS / 1000) +
   Math.ceil(SEND_TIMEOUT_MS / 1000) +
   Math.ceil(THINK_MS / 1000) +
   30;
@@ -191,6 +206,40 @@ export default function (data) {
     sleep(Math.random() * RAMP_S);
   }
 
+  const holdDeadline = HOLD_MS > 0 ? data.fireAt + HOLD_MS : 0;
+  let attempt = 0;
+  let everConnected = false;
+  let everJoined = false;
+  let anyUpgrade = false;
+
+  while (true) {
+    if (attempt > 0) {
+      cReconnectAttempt.add(1);
+      sleep((RECONNECT_DELAY_MS + Math.random() * RECONNECT_JITTER_MS) / 1000);
+      if (holdDeadline && Date.now() >= holdDeadline) break;
+    }
+
+    const result = runSocketAttempt(data, user, token, roomId, holdDeadline, attempt);
+    anyUpgrade = anyUpgrade || result.upgraded;
+    everConnected = everConnected || result.connected;
+    everJoined = everJoined || result.joined;
+    if (attempt > 0 && result.connected) cReconnectSuccess.add(1);
+
+    if (!result.shouldReconnect) break;
+    if (!RECONNECT || attempt >= MAX_RECONNECTS) {
+      cReconnectExhausted.add(1);
+      break;
+    }
+    if (holdDeadline && Date.now() >= holdDeadline) break;
+    attempt += 1;
+  }
+
+  check(anyUpgrade, { 'ws upgrade 101': (ok) => ok === true });
+  check(everConnected, { 'socket connected': (c) => c === true });
+  check(everJoined, { 'room joined': (j) => j === true });
+}
+
+function runSocketAttempt(data, user, token, roomId, holdDeadline, attemptNo) {
   const t0 = Date.now();
   let ackId = 0;
   const pending = {};
@@ -198,6 +247,9 @@ export default function (data) {
   let joined = false;
   let sawException = false;
   let closing = false;
+  let closeExpected = false;
+  let serverDisconnected = false;
+  let closeUnexpected = false;
 
   const res = ws.connect(WS_URL, { tags: { mode: MODE } }, function (socket) {
     let fireStarted = false;
@@ -219,9 +271,10 @@ export default function (data) {
       socket.setTimeout(fn, ms > 0 ? ms : 1);
     }
 
-    function doClose() {
+    function doClose(expected) {
       if (closing) return;
       closing = true;
+      closeExpected = expected !== false && !serverDisconnected;
       // Account for whatever never came back before we close (over the whole
       // flood, not per-message): sent-but-unacked, and sent-without-echo.
       if (fireStarted) {
@@ -235,7 +288,9 @@ export default function (data) {
     function sendOne() {
       if (sent >= MSGS_PER_VU) {
         // All queued — wait a grace window for outstanding acks/echoes, close.
-        later(doClose, SEND_TIMEOUT_MS + THINK_MS);
+        later(function () {
+          doClose(true);
+        }, SEND_TIMEOUT_MS + THINK_MS + HOLD_MS);
         return;
       }
       sent += 1;
@@ -267,6 +322,13 @@ export default function (data) {
       if (!connected) return; // never got connected — nothing to send
       fireStarted = true;
       cFired.add(1);
+      if (MSGS_PER_VU <= 0) {
+        const holdFor = holdDeadline ? Math.max(1, holdDeadline - Date.now()) : Math.max(HOLD_MS, THINK_MS);
+        later(function () {
+          doClose(true);
+        }, holdFor);
+        return;
+      }
       sendOne();
     }
 
@@ -323,17 +385,24 @@ export default function (data) {
         case 'connect_error':
           sawException = true;
           cException.add(1);
-          doClose();
+          doClose(false);
           break;
         case 'disconnect':
         case 'engine_close':
-          doClose();
+          serverDisconnected = true;
+          cServerDisconnect.add(1);
+          doClose(false);
           break;
       }
     });
 
     socket.on('close', function () {
       cDisconnected.add(1);
+      if (closeExpected) cCloseExpected.add(1);
+      else {
+        closeUnexpected = true;
+        cCloseUnexpected.add(1);
+      }
     });
 
     socket.on('error', function (e) {
@@ -344,15 +413,31 @@ export default function (data) {
     // Absolute safety net so a stuck socket never holds the VU open forever.
     // Time remaining to fireAt (clamped ≥0) + the whole flood + post-send budget.
     later(
-      doClose,
-      Math.max(0, data.fireAt - Date.now()) + FLOOD_MS + SEND_TIMEOUT_MS + THINK_MS + 10000,
+      function () {
+        doClose(false);
+      },
+      Math.max(0, data.fireAt - Date.now()) +
+        FLOOD_MS +
+        HOLD_MS +
+        SEND_TIMEOUT_MS +
+        THINK_MS +
+        10000,
     );
   });
 
-  check(res, { 'ws upgrade 101': (r) => r && r.status === 101 });
   if (!connected && !sawException) cConnectError.add(1);
-  check(connected, { 'socket connected': (c) => c === true });
-  check(joined, { 'room joined': (j) => j === true });
+
+  const upgraded = !!(res && res.status === 101);
+  const withinHold = holdDeadline && Date.now() < holdDeadline;
+  const shouldReconnect = withinHold && (closeUnexpected || serverDisconnected || !connected || !joined);
+
+  return {
+    upgraded,
+    connected,
+    joined,
+    shouldReconnect,
+    attemptNo,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -393,6 +478,10 @@ function extractRun(data) {
       userCount: USER_COUNT,
       msgsPerVu: MSGS_PER_VU,
       msgIntervalMs: MSG_INTERVAL_MS,
+      holdSeconds: HOLD_MS / 1000,
+      reconnect: RECONNECT,
+      maxReconnects: MAX_RECONNECTS,
+      reconnectDelayMs: RECONNECT_DELAY_MS,
       rampDuration: RAMP_S,
       connectMarginMs: CONNECT_MARGIN_MS,
       thinkAfterGo: THINK_MS / 1000,
@@ -426,6 +515,12 @@ function extractRun(data) {
       ws_send_ack_timeout: counter('ws_send_ack_timeout'),
       ws_upsert_timeout: counter('ws_upsert_timeout'),
       ws_disconnected: counter('ws_disconnected'),
+      ws_close_expected: counter('ws_close_expected'),
+      ws_close_unexpected: counter('ws_close_unexpected'),
+      ws_server_disconnect: counter('ws_server_disconnect'),
+      ws_reconnect_attempt: counter('ws_reconnect_attempt'),
+      ws_reconnect_success: counter('ws_reconnect_success'),
+      ws_reconnect_exhausted: counter('ws_reconnect_exhausted'),
     },
   };
 }
@@ -467,6 +562,15 @@ function consoleSummary(run) {
   L.push(`    send_ack_fail:    ${c.ws_send_ack_fail}`);
   L.push(`    send_ack_timeout: ${c.ws_send_ack_timeout}`);
   L.push(`    upsert_timeout:   ${c.ws_upsert_timeout}`);
+  L.push('  CLOSE');
+  L.push(`    disconnected:     ${c.ws_disconnected}`);
+  L.push(`    expected_close:   ${c.ws_close_expected}`);
+  L.push(`    unexpected_close: ${c.ws_close_unexpected}`);
+  L.push(`    server_disconnect:${c.ws_server_disconnect}`);
+  L.push('  RECONNECT');
+  L.push(`    attempts:         ${c.ws_reconnect_attempt}`);
+  L.push(`    success:          ${c.ws_reconnect_success}`);
+  L.push(`    exhausted:        ${c.ws_reconnect_exhausted}`);
   L.push('  LATENCY (ms)');
   L.push(`    send_ack    p95=${sa.p95}  p99=${sa.p99}  max=${sa.max}`);
   L.push(`    round_trip  p95=${rt.p95}  p99=${rt.p99}  max=${rt.max}`);
