@@ -121,12 +121,14 @@ const mRoundTrip = new Trend('ws_message_round_trip', true);
 
 const cConnected = new Counter('ws_connected');
 const cConnectError = new Counter('ws_connect_error');
+const cConnectAttemptFail = new Counter('ws_connect_attempt_fail');
 const cException = new Counter('ws_exception');
 const cJoinAckOk = new Counter('ws_join_ack_ok');
 const cJoinAckFail = new Counter('ws_join_ack_fail');
 const cJoinNoAck = new Counter('ws_join_no_ack');
 const cFired = new Counter('ws_fired');
 const cMsgSent = new Counter('ws_message_sent');
+const cSendSkippedDisconnected = new Counter('ws_send_skipped_disconnected');
 const cSendAckOk = new Counter('ws_send_ack_ok');
 const cSendAckFail = new Counter('ws_send_ack_fail');
 const cSendAckTimeout = new Counter('ws_send_ack_timeout');
@@ -211,6 +213,7 @@ export default function (data) {
   let everConnected = false;
   let everJoined = false;
   let anyUpgrade = false;
+  let finalConnectError = false;
 
   while (true) {
     if (attempt > 0) {
@@ -225,14 +228,19 @@ export default function (data) {
     everJoined = everJoined || result.joined;
     if (attempt > 0 && result.connected) cReconnectSuccess.add(1);
 
+    if (result.finishedByDeadline) break;
     if (!result.shouldReconnect) break;
     if (!RECONNECT || attempt >= MAX_RECONNECTS) {
       cReconnectExhausted.add(1);
+      finalConnectError = true;
       break;
     }
     if (holdDeadline && Date.now() >= holdDeadline) break;
     attempt += 1;
   }
+
+  if (!everConnected) finalConnectError = true;
+  if (finalConnectError) cConnectError.add(1);
 
   check(anyUpgrade, { 'ws upgrade 101': (ok) => ok === true });
   check(everConnected, { 'socket connected': (c) => c === true });
@@ -252,6 +260,7 @@ function runSocketAttempt(data, user, token, roomId, holdDeadline, attemptNo) {
   let closeUnexpected = false;
 
   const res = ws.connect(WS_URL, { tags: { mode: MODE } }, function (socket) {
+    let socketOpen = true;
     let fireStarted = false;
     let sent = 0; // messages queued by this VU
     let ackedCount = 0; // message:send acks received
@@ -259,9 +268,16 @@ function runSocketAttempt(data, user, token, roomId, holdDeadline, attemptNo) {
     const rtPending = {}; // clientMsgId -> sentAt (round-trip matching)
 
     function emit(event, arg, onAck) {
+      if (!socketOpen || closing || serverDisconnected) return false;
       const id = onAck ? ++ackId : null;
       if (onAck) pending[id] = onAck;
-      socket.send(encodeEvent(NAMESPACE, id, event, [arg]));
+      try {
+        socket.send(encodeEvent(NAMESPACE, id, event, [arg]));
+      } catch {
+        if (onAck) delete pending[id];
+        return false;
+      }
+      return true;
     }
 
     // k6's socket.setTimeout REQUIRES a strictly-positive delay (0 throws a
@@ -286,6 +302,10 @@ function runSocketAttempt(data, user, token, roomId, holdDeadline, attemptNo) {
 
     // Send the next message in the flood, then schedule the one after it.
     function sendOne() {
+      if (!socketOpen || closing || serverDisconnected) {
+        cSendSkippedDisconnected.add(1);
+        return;
+      }
       if (sent >= MSGS_PER_VU) {
         // All queued — wait a grace window for outstanding acks/echoes, close.
         later(function () {
@@ -293,12 +313,9 @@ function runSocketAttempt(data, user, token, roomId, holdDeadline, attemptNo) {
         }, SEND_TIMEOUT_MS + THINK_MS + HOLD_MS);
         return;
       }
-      sent += 1;
       const msgId = oid();
       const at = Date.now();
-      rtPending[msgId] = at;
-      cMsgSent.add(1);
-      emit(
+      const emitted = emit(
         'message:send',
         {
           roomId: roomId,
@@ -315,11 +332,21 @@ function runSocketAttempt(data, user, token, roomId, holdDeadline, attemptNo) {
           mSendAckTime.add(Date.now() - at);
         },
       );
+      if (!emitted) {
+        cSendSkippedDisconnected.add(1);
+        return;
+      }
+      sent += 1;
+      rtPending[msgId] = at;
+      cMsgSent.add(1);
       later(sendOne, MSG_INTERVAL_MS);
     }
 
     function fire() {
-      if (!connected) return; // never got connected — nothing to send
+      if (!connected || !socketOpen || closing || serverDisconnected) {
+        cSendSkippedDisconnected.add(1);
+        return;
+      }
       fireStarted = true;
       cFired.add(1);
       if (MSGS_PER_VU <= 0) {
@@ -397,6 +424,7 @@ function runSocketAttempt(data, user, token, roomId, holdDeadline, attemptNo) {
     });
 
     socket.on('close', function () {
+      socketOpen = false;
       cDisconnected.add(1);
       if (closeExpected) cCloseExpected.add(1);
       else {
@@ -425,9 +453,10 @@ function runSocketAttempt(data, user, token, roomId, holdDeadline, attemptNo) {
     );
   });
 
-  if (!connected && !sawException) cConnectError.add(1);
+  if (!connected && !sawException) cConnectAttemptFail.add(1);
 
   const upgraded = !!(res && res.status === 101);
+  const finishedByDeadline = !!(holdDeadline && Date.now() >= holdDeadline && closeExpected);
   const withinHold = holdDeadline && Date.now() < holdDeadline;
   const shouldReconnect = withinHold && (closeUnexpected || serverDisconnected || !connected || !joined);
 
@@ -435,6 +464,7 @@ function runSocketAttempt(data, user, token, roomId, holdDeadline, attemptNo) {
     upgraded,
     connected,
     joined,
+    finishedByDeadline,
     shouldReconnect,
     attemptNo,
   };
@@ -504,12 +534,14 @@ function extractRun(data) {
     counters: {
       ws_connected: counter('ws_connected'),
       ws_connect_error: counter('ws_connect_error'),
+      ws_connect_attempt_fail: counter('ws_connect_attempt_fail'),
       ws_exception: counter('ws_exception'),
       ws_join_ack_ok: counter('ws_join_ack_ok'),
       ws_join_ack_fail: counter('ws_join_ack_fail'),
       ws_join_no_ack: counter('ws_join_no_ack'),
       ws_fired: counter('ws_fired'),
       ws_message_sent: counter('ws_message_sent'),
+      ws_send_skipped_disconnected: counter('ws_send_skipped_disconnected'),
       ws_send_ack_ok: counter('ws_send_ack_ok'),
       ws_send_ack_fail: counter('ws_send_ack_fail'),
       ws_send_ack_timeout: counter('ws_send_ack_timeout'),
@@ -542,38 +574,44 @@ function consoleSummary(run) {
   const c = run.counters;
   const rt = run.trends.ws_message_round_trip;
   const sa = run.trends.ws_send_ack_time;
+  const cfg = run.config || {};
   const pct = (n, d) => (d ? ((n / d) * 100).toFixed(1) : '0.0');
   const L = [];
   L.push('');
   L.push('================ k6 LOADTEST SUMMARY ================');
   L.push(`  mode=${run.mode}  run=${run.runId}  dur=${(run.durationMs / 1000).toFixed(1)}s`);
+  L.push(
+    `  target_vus=${cfg.userCount || 0}  hold=${cfg.holdSeconds || 0}s  reconnect=${cfg.reconnect ? 'on' : 'off'} max=${cfg.maxReconnects || 0}`,
+  );
   L.push('  CONNECT');
-  L.push(`    connected:        ${c.ws_connected}`);
-  L.push(`    connect_error:    ${c.ws_connect_error}`);
-  L.push(`    exception:        ${c.ws_exception}`);
+  L.push(`    connected attempts: ${c.ws_connected}`);
+  L.push(`    final errors:       ${c.ws_connect_error} (${pct(c.ws_connect_error, cfg.userCount || 0)}% of target VUs)`);
+  L.push(`    attempt failures:   ${c.ws_connect_attempt_fail}`);
+  L.push(`    exceptions:         ${c.ws_exception}`);
   L.push('  JOIN');
-  L.push(`    join_ack_ok:      ${c.ws_join_ack_ok}`);
-  L.push(`    join_ack_fail:    ${c.ws_join_ack_fail}`);
-  L.push(`    join_no_ack:      ${c.ws_join_no_ack}`);
+  L.push(`    join_ack_ok:        ${c.ws_join_ack_ok}`);
+  L.push(`    join_ack_fail:      ${c.ws_join_ack_fail}`);
+  L.push(`    join_no_ack:        ${c.ws_join_no_ack}`);
   L.push('  SEND');
-  L.push(`    fired:            ${c.ws_fired}`);
-  L.push(`    message_sent:     ${c.ws_message_sent}`);
-  L.push(`    send_ack_ok:      ${c.ws_send_ack_ok} (${pct(c.ws_send_ack_ok, c.ws_message_sent)}%)`);
-  L.push(`    send_ack_fail:    ${c.ws_send_ack_fail}`);
-  L.push(`    send_ack_timeout: ${c.ws_send_ack_timeout}`);
-  L.push(`    upsert_timeout:   ${c.ws_upsert_timeout}`);
+  L.push(`    fired:              ${c.ws_fired}`);
+  L.push(`    message_sent:       ${c.ws_message_sent}`);
+  L.push(`    skipped_closed:     ${c.ws_send_skipped_disconnected}`);
+  L.push(`    send_ack_ok:        ${c.ws_send_ack_ok} (${pct(c.ws_send_ack_ok, c.ws_message_sent)}%)`);
+  L.push(`    send_ack_fail:      ${c.ws_send_ack_fail}`);
+  L.push(`    send_ack_timeout:   ${c.ws_send_ack_timeout}`);
+  L.push(`    upsert_timeout:     ${c.ws_upsert_timeout}`);
   L.push('  CLOSE');
-  L.push(`    disconnected:     ${c.ws_disconnected}`);
-  L.push(`    expected_close:   ${c.ws_close_expected}`);
-  L.push(`    unexpected_close: ${c.ws_close_unexpected}`);
-  L.push(`    server_disconnect:${c.ws_server_disconnect}`);
+  L.push(`    disconnected:       ${c.ws_disconnected}`);
+  L.push(`    expected_close:     ${c.ws_close_expected}`);
+  L.push(`    unexpected_close:   ${c.ws_close_unexpected}`);
+  L.push(`    server_disconnect:  ${c.ws_server_disconnect}`);
   L.push('  RECONNECT');
-  L.push(`    attempts:         ${c.ws_reconnect_attempt}`);
-  L.push(`    success:          ${c.ws_reconnect_success}`);
-  L.push(`    exhausted:        ${c.ws_reconnect_exhausted}`);
+  L.push(`    attempts:           ${c.ws_reconnect_attempt}`);
+  L.push(`    success:            ${c.ws_reconnect_success} (${pct(c.ws_reconnect_success, c.ws_reconnect_attempt)}%)`);
+  L.push(`    exhausted:          ${c.ws_reconnect_exhausted}`);
   L.push('  LATENCY (ms)');
-  L.push(`    send_ack    p95=${sa.p95}  p99=${sa.p99}  max=${sa.max}`);
-  L.push(`    round_trip  p95=${rt.p95}  p99=${rt.p99}  max=${rt.max}`);
+  L.push(`    send_ack:          p95=${sa.p95}  p99=${sa.p99}  max=${sa.max}`);
+  L.push(`    round_trip:        p95=${rt.p95}  p99=${rt.p99}  max=${rt.max}`);
   L.push(`  checks pass: ${(run.checks.overallRate * 100).toFixed(1)}%`);
   L.push(`  → reports/run-${run.runId}.json`);
   L.push('=====================================================');

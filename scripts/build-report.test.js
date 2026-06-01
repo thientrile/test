@@ -22,6 +22,13 @@ function fakeRun(over = {}) {
     counters: {
       ws_connected: 950,
       ws_connect_error: 50,
+      ws_connect_attempt_fail: 120,
+      ws_close_unexpected: 7,
+      ws_server_disconnect: 3,
+      ws_reconnect_attempt: 20,
+      ws_reconnect_success: 15,
+      ws_reconnect_exhausted: 2,
+      ws_send_skipped_disconnected: 6,
       ws_message_sent: 940,
       ws_send_ack_ok: 900,
       ws_send_ack_fail: 10,
@@ -48,6 +55,12 @@ test('buildHistory extracts compact per-run summary fields', () => {
   assert.equal(h.roundTripP95, 1700);
   assert.equal(h.sendAckOk, 900);
   assert.equal(h.connectError, 50);
+  assert.equal(h.connectAttemptFail, 120);
+  assert.equal(h.reconnectAttempt, 20);
+  assert.equal(h.reconnectSuccess, 15);
+  assert.equal(h.reconnectPct, 75);
+  assert.equal(h.closeUnexpected, 7);
+  assert.equal(h.sendSkippedDisconnected, 6);
   // checks pass percentage surfaced for the trend chart
   assert.equal(h.checksPct, 95);
 });
@@ -60,6 +73,7 @@ test('renderHtml is self-contained and inlines the run data', () => {
   // the actual numbers are present so the page renders offline
   assert.ok(html.includes('1700')); // round-trip p95
   assert.ok(html.includes('burst'));
+  assert.ok(html.includes('Reconnect rate'));
 });
 
 test('renderHtml handles an empty history without throwing', () => {
