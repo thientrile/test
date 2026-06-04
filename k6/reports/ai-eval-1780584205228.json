@@ -1,0 +1,543 @@
+{
+  "runAt": "2026-06-04T14:43:25.228Z",
+  "base": "https://api-gateway-service-475254343480.asia-southeast1.run.app",
+  "useStream": true,
+  "total": 16,
+  "passed": 6,
+  "httpFails": 0,
+  "hallucinationFails": 10,
+  "hallucinationFailRate": 0.625,
+  "tokenBudgetFails": 0,
+  "latency": {
+    "count": 16,
+    "min": 748,
+    "max": 2601,
+    "avg": 1228.8125,
+    "p50": 993,
+    "p95": 2601
+  },
+  "ttfb": {
+    "count": 16,
+    "min": 748,
+    "max": 2598,
+    "avg": 1228.5,
+    "p50": 993,
+    "p95": 2598
+  },
+  "usageBefore": {
+    "items": [],
+    "groupBy": "service",
+    "total": 0
+  },
+  "usageAfter": {
+    "items": [
+      {
+        "group": "translation",
+        "totalCalls": 5,
+        "successCalls": 5,
+        "errorCalls": 0,
+        "totalTokenInput": 867,
+        "totalTokenOutput": 108,
+        "totalCostUsd": 0.00013,
+        "avgLatencyMs": 794,
+        "uniqueUserCount": 1
+      },
+      {
+        "group": "suggest-replies",
+        "totalCalls": 4,
+        "successCalls": 4,
+        "errorCalls": 0,
+        "totalTokenInput": 903,
+        "totalTokenOutput": 265,
+        "totalCostUsd": 0.000196,
+        "avgLatencyMs": 1016,
+        "uniqueUserCount": 1
+      },
+      {
+        "group": "moderation",
+        "totalCalls": 3,
+        "successCalls": 3,
+        "errorCalls": 0,
+        "totalTokenInput": 37,
+        "totalTokenOutput": 103,
+        "totalCostUsd": 0.000045,
+        "avgLatencyMs": 805,
+        "uniqueUserCount": 1
+      },
+      {
+        "group": "generate-flashcard",
+        "totalCalls": 2,
+        "successCalls": 2,
+        "errorCalls": 0,
+        "totalTokenInput": 1081,
+        "totalTokenOutput": 905,
+        "totalCostUsd": 0.00047,
+        "avgLatencyMs": 2146,
+        "uniqueUserCount": 1
+      },
+      {
+        "group": "generate-quizz",
+        "totalCalls": 2,
+        "successCalls": 2,
+        "errorCalls": 0,
+        "totalTokenInput": 1112,
+        "totalTokenOutput": 967,
+        "totalCostUsd": 0.000498,
+        "avgLatencyMs": 1634,
+        "uniqueUserCount": 1
+      }
+    ],
+    "groupBy": "service",
+    "total": 16
+  },
+  "results": [
+    {
+      "id": "translation-vi-en-hello",
+      "service": "translation",
+      "route": "/api/ai/stream/translation",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 970,
+      "ttfbMs": 970,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Hello, how are you?"
+      },
+      "tokens": {
+        "input": 169,
+        "output": 17,
+        "total": 186,
+        "costUsd": 0.0000237,
+        "latencyServerMs": 865,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 186,
+        "costUsd": 0.0000237
+      }
+    },
+    {
+      "id": "translation-en-vi-hello",
+      "service": "translation",
+      "route": "/api/ai/stream/translation",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 889,
+      "ttfbMs": 889,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Chào buổi sáng"
+      },
+      "tokens": {
+        "input": 169,
+        "output": 17,
+        "total": 186,
+        "costUsd": 0.0000237,
+        "latencyServerMs": 865,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 186,
+        "costUsd": 0.0000237
+      }
+    },
+    {
+      "id": "translation-vi-en-datetime",
+      "service": "translation",
+      "route": "/api/ai/stream/translation",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 993,
+      "ttfbMs": 993,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Meeting at 2:30 PM on March 15, 2026, in room B201."
+      },
+      "tokens": {
+        "input": 164,
+        "output": 12,
+        "total": 176,
+        "costUsd": 0.000021200000000000004,
+        "latencyServerMs": 782,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 176,
+        "costUsd": 0.000021200000000000004
+      }
+    },
+    {
+      "id": "translation-en-vi-apology",
+      "service": "translation",
+      "route": "/api/ai/stream/translation",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 748,
+      "ttfbMs": 748,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Tôi xin lỗi vì sự chậm trễ trong việc gửi báo cáo."
+      },
+      "tokens": {
+        "input": 191,
+        "output": 35,
+        "total": 226,
+        "costUsd": 0.000033100000000000005,
+        "latencyServerMs": 891,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 226,
+        "costUsd": 0.000033100000000000005
+      }
+    },
+    {
+      "id": "translation-vi-en-tech-term",
+      "service": "translation",
+      "route": "/api/ai/stream/translation",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 887,
+      "ttfbMs": 887,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "REST API uses JWT and Redis cache."
+      },
+      "tokens": {
+        "input": 173,
+        "output": 25,
+        "total": 198,
+        "costUsd": 0.0000273,
+        "latencyServerMs": 649,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 198,
+        "costUsd": 0.0000273
+      }
+    },
+    {
+      "id": "moderation-safe",
+      "service": "moderation",
+      "route": "/api/ai/stream/moderation",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 871,
+      "ttfbMs": 871,
+      "error": null,
+      "hallucination": {
+        "pass": false,
+        "reasons": [
+          "thiếu từ khóa kỳ vọng: allow, safe, ok, pass, review"
+        ],
+        "textSample": ""
+      },
+      "tokens": null,
+      "tokenBudget": {
+        "pass": true,
+        "reasons": []
+      }
+    },
+    {
+      "id": "moderation-safe-short",
+      "service": "moderation",
+      "route": "/api/ai/stream/moderation",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 859,
+      "ttfbMs": 859,
+      "error": null,
+      "hallucination": {
+        "pass": false,
+        "reasons": [
+          "thiếu từ khóa kỳ vọng: allow, safe, ok, pass, review"
+        ],
+        "textSample": ""
+      },
+      "tokens": {
+        "input": 13,
+        "output": 21,
+        "total": 34,
+        "costUsd": 0.000009699999999999999,
+        "latencyServerMs": 764,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 34,
+        "costUsd": 0.000009699999999999999
+      }
+    },
+    {
+      "id": "moderation-promo-soft",
+      "service": "moderation",
+      "route": "/api/ai/stream/moderation",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 995,
+      "ttfbMs": 995,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": ""
+      },
+      "tokens": {
+        "input": 7,
+        "output": 20,
+        "total": 27,
+        "costUsd": 0.000008700000000000001,
+        "latencyServerMs": 753,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 27,
+        "costUsd": 0.000008700000000000001
+      }
+    },
+    {
+      "id": "suggest-replies-meeting",
+      "service": "suggest-replies",
+      "route": "/api/ai/stream/suggest-replies",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 1082,
+      "ttfbMs": 1082,
+      "error": null,
+      "hallucination": {
+        "pass": false,
+        "reasons": [
+          "không bám ngữ cảnh (overlap < 1): họp, 3, meet, link"
+        ],
+        "textSample": ""
+      },
+      "tokens": null,
+      "tokenBudget": {
+        "pass": true,
+        "reasons": []
+      }
+    },
+    {
+      "id": "suggest-replies-thanks",
+      "service": "suggest-replies",
+      "route": "/api/ai/stream/suggest-replies",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 849,
+      "ttfbMs": 849,
+      "error": null,
+      "hallucination": {
+        "pass": false,
+        "reasons": [
+          "không bám ngữ cảnh (overlap < 1): cảm ơn, báo cáo, file, review"
+        ],
+        "textSample": ""
+      },
+      "tokens": {
+        "input": 225,
+        "output": 59,
+        "total": 284,
+        "costUsd": 0.0000461,
+        "latencyServerMs": 982,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 284,
+        "costUsd": 0.0000461
+      }
+    },
+    {
+      "id": "suggest-replies-deadline",
+      "service": "suggest-replies",
+      "route": "/api/ai/stream/suggest-replies",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 1345,
+      "ttfbMs": 1345,
+      "error": null,
+      "hallucination": {
+        "pass": false,
+        "reasons": [
+          "không bám ngữ cảnh (overlap < 1): deadline, thứ, nộp, gia hạn, bài"
+        ],
+        "textSample": ""
+      },
+      "tokens": {
+        "input": 225,
+        "output": 63,
+        "total": 288,
+        "costUsd": 0.00004770000000000001,
+        "latencyServerMs": 743,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 288,
+        "costUsd": 0.00004770000000000001
+      }
+    },
+    {
+      "id": "suggest-replies-birthday",
+      "service": "suggest-replies",
+      "route": "/api/ai/stream/suggest-replies",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 1192,
+      "ttfbMs": 1192,
+      "error": null,
+      "hallucination": {
+        "pass": false,
+        "reasons": [
+          "không bám ngữ cảnh (overlap < 1): sinh nhật, lan, party, 6"
+        ],
+        "textSample": ""
+      },
+      "tokens": {
+        "input": 227,
+        "output": 69,
+        "total": 296,
+        "costUsd": 0.0000503,
+        "latencyServerMs": 1246,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 296,
+        "costUsd": 0.0000503
+      }
+    },
+    {
+      "id": "quizz-true-false-water",
+      "service": "generate-quizz",
+      "route": "/api/ai/stream/quizz",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 1977,
+      "ttfbMs": 1976,
+      "error": null,
+      "hallucination": {
+        "pass": false,
+        "reasons": [
+          "thiếu từ khóa kỳ vọng: question, câu, true, false, đúng, sai, 100"
+        ],
+        "textSample": ""
+      },
+      "tokens": null,
+      "tokenBudget": {
+        "pass": true,
+        "reasons": []
+      }
+    },
+    {
+      "id": "quizz-single-choice-git",
+      "service": "generate-quizz",
+      "route": "/api/ai/stream/quizz",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 1508,
+      "ttfbMs": 1507,
+      "error": null,
+      "hallucination": {
+        "pass": false,
+        "reasons": [
+          "thiếu từ khóa kỳ vọng: git, commit, branch, question, câu, choice"
+        ],
+        "textSample": ""
+      },
+      "tokens": {
+        "input": 559,
+        "output": 397,
+        "total": 956,
+        "costUsd": 0.00021470000000000001,
+        "latencyServerMs": 1872,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 956,
+        "costUsd": 0.00021470000000000001
+      }
+    },
+    {
+      "id": "generate-flashcard-capital",
+      "service": "generate-flashcard",
+      "route": "/api/ai/stream/generate-flashcard",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 1895,
+      "ttfbMs": 1895,
+      "error": null,
+      "hallucination": {
+        "pass": false,
+        "reasons": [
+          "thiếu từ khóa kỳ vọng: hà nội, ha noi, bangkok, jakarta, thủ đô, capital"
+        ],
+        "textSample": ""
+      },
+      "tokens": null,
+      "tokenBudget": {
+        "pass": true,
+        "reasons": []
+      }
+    },
+    {
+      "id": "generate-flashcard-sql-basics",
+      "service": "generate-flashcard",
+      "route": "/api/ai/stream/generate-flashcard",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 2601,
+      "ttfbMs": 2598,
+      "error": null,
+      "hallucination": {
+        "pass": false,
+        "reasons": [
+          "thiếu từ khóa kỳ vọng: select, where, join, sql"
+        ],
+        "textSample": ""
+      },
+      "tokens": {
+        "input": 543,
+        "output": 390,
+        "total": 933,
+        "costUsd": 0.0002103,
+        "latencyServerMs": 1797,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 933,
+        "costUsd": 0.0002103
+      }
+    }
+  ]
+}

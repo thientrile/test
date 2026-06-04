@@ -65,6 +65,10 @@ HTML tĩnh bằng browser, **không cần FE/server**).
 | `npm run k6:run` | `k6 run k6/loadtest.js` (cần k6 cài local) |
 | `npm run k6:docker` | Chạy k6 qua container `grafana/k6` |
 | `npm run probe` | Smoke 1 socket với backend thật |
+| `npm run probe:gateway` | Smoke `POST /api/auth/login` (1 req) |
+| `npm run k6:gateway` | HTTP login load — 10k @ 50/s (~200s); giảm rate nếu fail cao |
+| `npm run test:ai` | AI eval: latency, hallucination (golden), token/cost mỗi request |
+| `npm run test:ai:unit` | Unit test heuristic `ai-eval-lib` |
 | `npm run report` | Build `index.html` từ history rồi mở browser |
 | `npm run report:open` | Chỉ mở `k6/reports/index.html` (không cần server) |
 | `npm run test:unit` | Unit-test framing `k6/socketio.js` (Node thuần) |

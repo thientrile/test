@@ -1,0 +1,518 @@
+{
+  "runAt": "2026-06-04T14:49:21.171Z",
+  "base": "https://api-gateway-service-475254343480.asia-southeast1.run.app",
+  "useStream": true,
+  "total": 16,
+  "passed": 14,
+  "httpFails": 0,
+  "hallucinationFails": 2,
+  "hallucinationFailRate": 0.125,
+  "tokenBudgetFails": 0,
+  "latency": {
+    "count": 16,
+    "min": 657,
+    "max": 2978,
+    "avg": 1291.3125,
+    "p50": 981,
+    "p95": 2978
+  },
+  "ttfb": {
+    "count": 16,
+    "min": 657,
+    "max": 2977,
+    "avg": 1290.875,
+    "p50": 981,
+    "p95": 2977
+  },
+  "usageBefore": {
+    "items": [],
+    "groupBy": "service",
+    "total": 0
+  },
+  "usageAfter": {
+    "items": [
+      {
+        "group": "translation",
+        "totalCalls": 5,
+        "successCalls": 5,
+        "errorCalls": 0,
+        "totalTokenInput": 867,
+        "totalTokenOutput": 108,
+        "totalCostUsd": 0.00013,
+        "avgLatencyMs": 710,
+        "uniqueUserCount": 1
+      },
+      {
+        "group": "suggest-replies",
+        "totalCalls": 4,
+        "successCalls": 4,
+        "errorCalls": 0,
+        "totalTokenInput": 903,
+        "totalTokenOutput": 258,
+        "totalCostUsd": 0.000194,
+        "avgLatencyMs": 992,
+        "uniqueUserCount": 1
+      },
+      {
+        "group": "moderation",
+        "totalCalls": 3,
+        "successCalls": 3,
+        "errorCalls": 0,
+        "totalTokenInput": 37,
+        "totalTokenOutput": 117,
+        "totalCostUsd": 0.000051,
+        "avgLatencyMs": 869,
+        "uniqueUserCount": 1
+      },
+      {
+        "group": "generate-flashcard",
+        "totalCalls": 2,
+        "successCalls": 2,
+        "errorCalls": 0,
+        "totalTokenInput": 1081,
+        "totalTokenOutput": 895,
+        "totalCostUsd": 0.000466,
+        "avgLatencyMs": 2101,
+        "uniqueUserCount": 1
+      },
+      {
+        "group": "generate-quizz",
+        "totalCalls": 2,
+        "successCalls": 2,
+        "errorCalls": 0,
+        "totalTokenInput": 1112,
+        "totalTokenOutput": 986,
+        "totalCostUsd": 0.000506,
+        "avgLatencyMs": 2328,
+        "uniqueUserCount": 1
+      }
+    ],
+    "groupBy": "service",
+    "total": 16
+  },
+  "results": [
+    {
+      "id": "translation-vi-en-hello",
+      "service": "translation",
+      "route": "/api/ai/stream/translation",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 868,
+      "ttfbMs": 867,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Hello, how are you?"
+      },
+      "tokens": null,
+      "tokenBudget": {
+        "pass": true,
+        "reasons": []
+      }
+    },
+    {
+      "id": "translation-en-vi-hello",
+      "service": "translation",
+      "route": "/api/ai/stream/translation",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 928,
+      "ttfbMs": 928,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Chào buổi sáng"
+      },
+      "tokens": {
+        "input": 169,
+        "output": 14,
+        "total": 183,
+        "costUsd": 0.0000225,
+        "latencyServerMs": 764,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 183,
+        "costUsd": 0.0000225
+      }
+    },
+    {
+      "id": "translation-vi-en-datetime",
+      "service": "translation",
+      "route": "/api/ai/stream/translation",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 753,
+      "ttfbMs": 753,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Meeting at 2:30 PM on March 15, 2026, in room B201."
+      },
+      "tokens": {
+        "input": 164,
+        "output": 15,
+        "total": 179,
+        "costUsd": 0.000022400000000000002,
+        "latencyServerMs": 824,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 179,
+        "costUsd": 0.000022400000000000002
+      }
+    },
+    {
+      "id": "translation-en-vi-apology",
+      "service": "translation",
+      "route": "/api/ai/stream/translation",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 865,
+      "ttfbMs": 865,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Tôi xin lỗi vì sự chậm trễ trong việc gửi báo cáo."
+      },
+      "tokens": {
+        "input": 191,
+        "output": 38,
+        "total": 229,
+        "costUsd": 0.00003430000000000001,
+        "latencyServerMs": 651,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 229,
+        "costUsd": 0.00003430000000000001
+      }
+    },
+    {
+      "id": "translation-vi-en-tech-term",
+      "service": "translation",
+      "route": "/api/ai/stream/translation",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 657,
+      "ttfbMs": 657,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "REST API uses JWT and Redis cache."
+      },
+      "tokens": {
+        "input": 173,
+        "output": 25,
+        "total": 198,
+        "costUsd": 0.0000273,
+        "latencyServerMs": 762,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 198,
+        "costUsd": 0.0000273
+      }
+    },
+    {
+      "id": "moderation-safe",
+      "service": "moderation",
+      "route": "/api/ai/stream/moderation",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 981,
+      "ttfbMs": 981,
+      "error": null,
+      "hallucination": {
+        "pass": false,
+        "reasons": [
+          "thiếu từ khóa kỳ vọng: allow, safe, ok, pass, review, approve, verdict, flag, spam, an toan, cho phep"
+        ],
+        "textSample": ""
+      },
+      "tokens": null,
+      "tokenBudget": {
+        "pass": true,
+        "reasons": []
+      }
+    },
+    {
+      "id": "moderation-safe-short",
+      "service": "moderation",
+      "route": "/api/ai/stream/moderation",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 1001,
+      "ttfbMs": 1001,
+      "error": null,
+      "hallucination": {
+        "pass": false,
+        "reasons": [
+          "thiếu từ khóa kỳ vọng: allow, safe, ok, pass, review, approve, verdict"
+        ],
+        "textSample": ""
+      },
+      "tokens": {
+        "input": 13,
+        "output": 29,
+        "total": 42,
+        "costUsd": 0.0000129,
+        "latencyServerMs": 875,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 42,
+        "costUsd": 0.0000129
+      }
+    },
+    {
+      "id": "moderation-promo-soft",
+      "service": "moderation",
+      "route": "/api/ai/stream/moderation",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 941,
+      "ttfbMs": 940,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": ""
+      },
+      "tokens": {
+        "input": 7,
+        "output": 24,
+        "total": 31,
+        "costUsd": 0.000010300000000000001,
+        "latencyServerMs": 895,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 31,
+        "costUsd": 0.000010300000000000001
+      }
+    },
+    {
+      "id": "suggest-replies-meeting",
+      "service": "suggest-replies",
+      "route": "/api/ai/stream/suggest-replies",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 1128,
+      "ttfbMs": 1128,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Ok lun Chốt kèo Nhận kèo 👍 👌 ✅ 💯 🔥 ok deal meeting"
+      },
+      "tokens": null,
+      "tokenBudget": {
+        "pass": true,
+        "reasons": []
+      }
+    },
+    {
+      "id": "suggest-replies-thanks",
+      "service": "suggest-replies",
+      "route": "/api/ai/stream/suggest-replies",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 1076,
+      "ttfbMs": 1076,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Oke bạn iu! Nhận rùi nha Okela, tks bạn! 👍 👌 ✨ 🔥 💯 okay received review"
+      },
+      "tokens": {
+        "input": 225,
+        "output": 59,
+        "total": 284,
+        "costUsd": 0.0000461,
+        "latencyServerMs": 1017,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 284,
+        "costUsd": 0.0000461
+      }
+    },
+    {
+      "id": "suggest-replies-deadline",
+      "service": "suggest-replies",
+      "route": "/api/ai/stream/suggest-replies",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 1304,
+      "ttfbMs": 1304,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Okela, tui xin vía Nhận done, cảm ơn ạ Gia hạn gấp ạ 🙏 💯 🏃‍♀️ ✨ 😅 deadline stressed panic"
+      },
+      "tokens": {
+        "input": 225,
+        "output": 66,
+        "total": 291,
+        "costUsd": 0.00004890000000000001,
+        "latencyServerMs": 967,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 291,
+        "costUsd": 0.00004890000000000001
+      }
+    },
+    {
+      "id": "suggest-replies-birthday",
+      "service": "suggest-replies",
+      "route": "/api/ai/stream/suggest-replies",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 881,
+      "ttfbMs": 881,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Ok chốt! Nhất trí! Bao giờ đi? 🎉 🎂 🥳 🎁 ✨ surprise party excited"
+      },
+      "tokens": {
+        "input": 227,
+        "output": 71,
+        "total": 298,
+        "costUsd": 0.0000511,
+        "latencyServerMs": 1203,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 298,
+        "costUsd": 0.0000511
+      }
+    },
+    {
+      "id": "quizz-true-false-water",
+      "service": "generate-quizz",
+      "route": "/api/ai/stream/quizz",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 1892,
+      "ttfbMs": 1891,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "{Kiến thức cơ bản về Nước\",{\": 1,\"answer_text\": \"Sai\",true_false\",\"is_correct\": false,"
+      },
+      "tokens": null,
+      "tokenBudget": {
+        "pass": true,
+        "reasons": []
+      }
+    },
+    {
+      "id": "quizz-single-choice-git",
+      "service": "generate-quizz",
+      "route": "/api/ai/stream/quizz",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 2978,
+      "ttfbMs": 2977,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "{Kiến thức cơ bản về Git\",[\"answer_text\": \"Tạo ra các nhánh phát triển song song.\",một snapshot của dự án.\",_correct\": false,5,ồng phát triển song song mà không ảnh hưởng đến mã nguồn chính.\",false,"
+      },
+      "tokens": {
+        "input": 559,
+        "output": 382,
+        "total": 941,
+        "costUsd": 0.00020870000000000003,
+        "latencyServerMs": 1778,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 941,
+        "costUsd": 0.00020870000000000003
+      }
+    },
+    {
+      "id": "generate-flashcard-capital",
+      "service": "generate-flashcard",
+      "route": "/api/ai/stream/generate-flashcard",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 2068,
+      "ttfbMs": 2067,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "{Thủ đô các nước Đông Nam Á\",language\": \"vi\",front\": \"Việt Nam có thủ đô là thành phố nào?\",Gươm và khu Phố Cổ.\",\"card_front\": \"Indonesia, quốc gia vạn đảo, có thủ đô là gì?\",đô sang Nusantara)\",\"],củ"
+      },
+      "tokens": null,
+      "tokenBudget": {
+        "pass": true,
+        "reasons": []
+      }
+    },
+    {
+      "id": "generate-flashcard-sql-basics",
+      "service": "generate-flashcard",
+      "route": "/api/ai/stream/generate-flashcard",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 2340,
+      "ttfbMs": 2338,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "{\"SQL Cơ Bản: Truy vấn Dữ liệu\",\"card_front\": \"Trong SQL, lệnh nào được sử dụng để chọn dữ liệu từ một hoặc nhiều bảng?\",sở dữ liệu.\",để lọc các bản ghi và chỉ lấy những bản ghi đáp ứng một điều kiện "
+      },
+      "tokens": {
+        "input": 543,
+        "output": 421,
+        "total": 964,
+        "costUsd": 0.0002227,
+        "latencyServerMs": 1966,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 964,
+        "costUsd": 0.0002227
+      }
+    }
+  ]
+}

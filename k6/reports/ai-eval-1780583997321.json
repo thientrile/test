@@ -1,0 +1,175 @@
+{
+  "runAt": "2026-06-04T14:39:57.320Z",
+  "base": "https://api-gateway-service-475254343480.asia-southeast1.run.app",
+  "useStream": true,
+  "total": 4,
+  "passed": 2,
+  "httpFails": 0,
+  "hallucinationFails": 2,
+  "hallucinationFailRate": 0.5,
+  "tokenBudgetFails": 0,
+  "latency": {
+    "count": 4,
+    "min": 850,
+    "max": 984,
+    "avg": 920.25,
+    "p50": 914,
+    "p95": 984
+  },
+  "ttfb": {
+    "count": 4,
+    "min": 850,
+    "max": 984,
+    "avg": 920,
+    "p50": 914,
+    "p95": 984
+  },
+  "usageBefore": {
+    "items": [],
+    "groupBy": "service",
+    "total": 0
+  },
+  "usageAfter": {
+    "items": [
+      {
+        "group": "translation",
+        "totalCalls": 2,
+        "successCalls": 2,
+        "errorCalls": 0,
+        "totalTokenInput": 333,
+        "totalTokenOutput": 29,
+        "totalCostUsd": 0.000045,
+        "avgLatencyMs": 815,
+        "uniqueUserCount": 1
+      },
+      {
+        "group": "suggest-replies",
+        "totalCalls": 1,
+        "successCalls": 1,
+        "errorCalls": 0,
+        "totalTokenInput": 225,
+        "totalTokenOutput": 59,
+        "totalCostUsd": 0.000046,
+        "avgLatencyMs": 739,
+        "uniqueUserCount": 1
+      },
+      {
+        "group": "moderation",
+        "totalCalls": 1,
+        "successCalls": 1,
+        "errorCalls": 0,
+        "totalTokenInput": 13,
+        "totalTokenOutput": 31,
+        "totalCostUsd": 0.000014,
+        "avgLatencyMs": 874,
+        "uniqueUserCount": 1
+      }
+    ],
+    "groupBy": "service",
+    "total": 4
+  },
+  "results": [
+    {
+      "id": "translation-vi-en-hello",
+      "service": "translation",
+      "route": "/api/ai/stream/translation",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 933,
+      "ttfbMs": 932,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Hello, how are you?"
+      },
+      "tokens": {
+        "input": 169,
+        "output": 17,
+        "total": 186,
+        "costUsd": 0.0000237,
+        "latencyServerMs": 822,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 186,
+        "costUsd": 0.0000237
+      }
+    },
+    {
+      "id": "translation-en-vi-hello",
+      "service": "translation",
+      "route": "/api/ai/stream/translation",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 914,
+      "ttfbMs": 914,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Chào buổi sáng"
+      },
+      "tokens": {
+        "input": 169,
+        "output": 17,
+        "total": 186,
+        "costUsd": 0.0000237,
+        "latencyServerMs": 822,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 186,
+        "costUsd": 0.0000237
+      }
+    },
+    {
+      "id": "moderation-safe",
+      "service": "moderation",
+      "route": "/api/ai/stream/moderation",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 984,
+      "ttfbMs": 984,
+      "error": null,
+      "hallucination": {
+        "pass": false,
+        "reasons": [
+          "thiếu từ khóa kỳ vọng: allow, safe, ok, pass, review"
+        ],
+        "textSample": ""
+      },
+      "tokens": null,
+      "tokenBudget": {
+        "pass": true,
+        "reasons": []
+      }
+    },
+    {
+      "id": "suggest-replies-meeting",
+      "service": "suggest-replies",
+      "route": "/api/ai/stream/suggest-replies",
+      "stream": true,
+      "httpOk": true,
+      "latencyMs": 850,
+      "ttfbMs": 850,
+      "error": null,
+      "hallucination": {
+        "pass": false,
+        "reasons": [
+          "không bám ngữ cảnh (overlap < 1): họp, 3, meet, link"
+        ],
+        "textSample": ""
+      },
+      "tokens": null,
+      "tokenBudget": {
+        "pass": true,
+        "reasons": []
+      }
+    }
+  ]
+}

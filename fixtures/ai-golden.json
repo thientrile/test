@@ -1,0 +1,283 @@
+{
+  "description": "Golden cases — heuristic hallucination (mustContain / mustNotContain / contextKeywords). service phải khớp AIUsageLogs (moderation, translation, suggest-replies, generate-quizz, generate-flashcard).",
+  "cases": [
+    {
+      "id": "translation-vi-en-hello",
+      "service": "translation",
+      "route": "/api/ai/translation",
+      "streamRoute": "/api/ai/stream/translation",
+      "body": { "text": "Xin chào, bạn khỏe không?", "from": "vi", "to": "en" },
+      "hallucination": {
+        "mustContainAny": ["hello", "hi", "how are you", "greet"],
+        "mustNotContain": ["bitcoin", "paris tower", "einstein", "nuclear"]
+      },
+      "tokenBudget": { "maxTotalTokens": 800, "maxCostUsd": 0.003 }
+    },
+    {
+      "id": "translation-en-vi-hello",
+      "service": "translation",
+      "route": "/api/ai/translation",
+      "streamRoute": "/api/ai/stream/translation",
+      "body": { "text": "Good morning", "from": "en", "to": "vi" },
+      "hallucination": {
+        "mustContainAny": ["chào", "sáng", "buổi"],
+        "mustNotContain": ["bitcoin", "stock market", "weather in london"]
+      },
+      "tokenBudget": { "maxTotalTokens": 800, "maxCostUsd": 0.003 }
+    },
+    {
+      "id": "translation-vi-en-datetime",
+      "service": "translation",
+      "route": "/api/ai/translation",
+      "streamRoute": "/api/ai/stream/translation",
+      "body": {
+        "text": "Cuộc họp lúc 14:30 ngày 15/03/2026 tại phòng B201.",
+        "from": "vi",
+        "to": "en"
+      },
+      "hallucination": {
+        "mustContainAny": ["14:30", "14.30", "15/03", "march", "meeting", "b201"],
+        "mustNotContain": ["bitcoin", "cancelled forever", "new york stock"]
+      },
+      "tokenBudget": { "maxTotalTokens": 1000, "maxCostUsd": 0.004 }
+    },
+    {
+      "id": "translation-en-vi-apology",
+      "service": "translation",
+      "route": "/api/ai/translation",
+      "streamRoute": "/api/ai/stream/translation",
+      "body": {
+        "text": "I am sorry for the delay in sending the report.",
+        "from": "en",
+        "to": "vi"
+      },
+      "hallucination": {
+        "mustContainAny": ["xin lỗi", "lỗi", "trễ", "báo cáo", "delay", "sorry"],
+        "mustNotContain": ["bitcoin", "lawsuit", "court order"]
+      },
+      "tokenBudget": { "maxTotalTokens": 900, "maxCostUsd": 0.003 }
+    },
+    {
+      "id": "translation-vi-en-tech-term",
+      "service": "translation",
+      "route": "/api/ai/translation",
+      "streamRoute": "/api/ai/stream/translation",
+      "body": {
+        "text": "API REST dùng JWT và Redis cache.",
+        "from": "vi",
+        "to": "en"
+      },
+      "hallucination": {
+        "mustContainAny": ["api", "rest", "jwt", "redis"],
+        "mustNotContain": ["blockchain mining", "quantum computer price"]
+      },
+      "tokenBudget": { "maxTotalTokens": 900, "maxCostUsd": 0.003 }
+    },
+    {
+      "id": "moderation-safe",
+      "service": "moderation",
+      "route": "/api/ai/moderation",
+      "streamRoute": "/api/ai/stream/moderation",
+      "body": { "text": "Chúc bạn một ngày làm việc hiệu quả và vui vẻ." },
+      "hallucination": {
+        "mustContainAny": [
+          "allow",
+          "safe",
+          "ok",
+          "pass",
+          "review",
+          "approve",
+          "verdict",
+          "flag",
+          "spam",
+          "an toan",
+          "cho phep"
+        ],
+        "mustNotContain": ["block", "ban", "illegal drug recipe"]
+      },
+      "tokenBudget": { "maxTotalTokens": 1200, "maxCostUsd": 0.004 }
+    },
+    {
+      "id": "moderation-safe-short",
+      "service": "moderation",
+      "route": "/api/ai/moderation",
+      "streamRoute": "/api/ai/stream/moderation",
+      "body": { "text": "Cảm ơn bạn nhé!" },
+      "hallucination": {
+        "mustContainAny": [
+          "allow",
+          "safe",
+          "ok",
+          "pass",
+          "review",
+          "approve",
+          "verdict"
+        ],
+        "mustNotContain": ["block", "ban", "violence", "weapon"]
+      },
+      "tokenBudget": { "maxTotalTokens": 1000, "maxCostUsd": 0.003 }
+    },
+    {
+      "id": "moderation-promo-soft",
+      "service": "moderation",
+      "route": "/api/ai/moderation",
+      "streamRoute": "/api/ai/stream/moderation",
+      "body": {
+        "text": "Shop đang giảm giá 20% cuối tuần, inbox để nhận mã."
+      },
+      "hallucination": {
+        "mustNotContain": [
+          "illegal drug",
+          "weapon",
+          "kill",
+          "hack bank account"
+        ]
+      },
+      "tokenBudget": { "maxTotalTokens": 1200, "maxCostUsd": 0.004 }
+    },
+    {
+      "id": "suggest-replies-meeting",
+      "service": "suggest-replies",
+      "route": "/api/ai/suggest-replies",
+      "streamRoute": "/api/ai/stream/suggest-replies",
+      "body": {
+        "contextMessages": [
+          "Mình họp lúc 3 giờ chiều nhé",
+          "Ok, mình sẽ gửi link Google Meet"
+        ]
+      },
+      "hallucination": {
+        "contextKeywords": ["họp", "3", "meet", "link"],
+        "minContextOverlap": 1,
+        "mustNotContain": ["bitcoin", "crypto", "lottery", "viagra"]
+      },
+      "tokenBudget": { "maxTotalTokens": 2000, "maxCostUsd": 0.006 }
+    },
+    {
+      "id": "suggest-replies-thanks",
+      "service": "suggest-replies",
+      "route": "/api/ai/suggest-replies",
+      "streamRoute": "/api/ai/stream/suggest-replies",
+      "body": {
+        "contextMessages": [
+          "Cảm ơn bạn đã gửi file báo cáo",
+          "Mình đã nhận và sẽ review sớm"
+        ]
+      },
+      "hallucination": {
+        "contextKeywords": ["cảm ơn", "báo cáo", "file", "review"],
+        "minContextOverlap": 1,
+        "mustNotContain": ["bitcoin", "investment", "dating"]
+      },
+      "tokenBudget": { "maxTotalTokens": 2000, "maxCostUsd": 0.006 }
+    },
+    {
+      "id": "suggest-replies-deadline",
+      "service": "suggest-replies",
+      "route": "/api/ai/suggest-replies",
+      "streamRoute": "/api/ai/stream/suggest-replies",
+      "body": {
+        "contextMessages": [
+          "Deadline nộp bài là thứ Sáu tuần này",
+          "Ai chưa xong nhắn mình để gia hạn"
+        ]
+      },
+      "hallucination": {
+        "contextKeywords": ["deadline", "thứ", "nộp", "gia hạn", "bài"],
+        "minContextOverlap": 1,
+        "mustNotContain": ["crypto", "casino", "lottery"]
+      },
+      "tokenBudget": { "maxTotalTokens": 2200, "maxCostUsd": 0.006 }
+    },
+    {
+      "id": "suggest-replies-birthday",
+      "service": "suggest-replies",
+      "route": "/api/ai/suggest-replies",
+      "streamRoute": "/api/ai/stream/suggest-replies",
+      "body": {
+        "contextMessages": [
+          "Hôm nay là sinh nhật của Lan",
+          "Team mình chuẩn bị surprise party lúc 6h"
+        ]
+      },
+      "hallucination": {
+        "contextKeywords": ["sinh nhật", "lan", "party", "6"],
+        "minContextOverlap": 1,
+        "mustNotContain": ["bitcoin", "medical diagnosis", "prescription"]
+      },
+      "tokenBudget": { "maxTotalTokens": 2200, "maxCostUsd": 0.006 }
+    },
+    {
+      "id": "quizz-true-false-water",
+      "service": "generate-quizz",
+      "route": "/api/ai/quizz",
+      "streamRoute": "/api/ai/stream/quizz",
+      "body": {
+        "text": "Nước sôi ở 100 độ C ở áp suất tiêu chuẩn. Con người cần nước để sống.",
+        "type": "text",
+        "question_type": "true_false",
+        "question_max": 2,
+        "question_max_points": 10
+      },
+      "hallucination": {
+        "mustContainAny": ["question", "câu", "true", "false", "đúng", "sai", "100"],
+        "mustNotContain": ["bitcoin", "stock ticker", "celebrity gossip"]
+      },
+      "tokenBudget": { "maxTotalTokens": 4000, "maxCostUsd": 0.012 }
+    },
+    {
+      "id": "quizz-single-choice-git",
+      "service": "generate-quizz",
+      "route": "/api/ai/quizz",
+      "streamRoute": "/api/ai/stream/quizz",
+      "body": {
+        "text": "Git dùng commit để lưu snapshot. Branch cho phép phát triển song song.",
+        "type": "text",
+        "question_type": "single_choice",
+        "question_max": 2,
+        "question_max_points": 10
+      },
+      "hallucination": {
+        "mustContainAny": ["git", "commit", "branch", "question", "câu", "choice"],
+        "mustNotContain": ["recipe", "cooking", "lottery"]
+      },
+      "tokenBudget": { "maxTotalTokens": 4500, "maxCostUsd": 0.014 }
+    },
+    {
+      "id": "generate-flashcard-capital",
+      "service": "generate-flashcard",
+      "route": "/api/ai/generate-flashcard",
+      "streamRoute": "/api/ai/stream/generate-flashcard",
+      "body": {
+        "topic": "Thủ đô các nước Đông Nam Á: Việt Nam, Thái Lan, Indonesia",
+        "type": "text",
+        "card_count": 3,
+        "difficulty": 2,
+        "language": "vi"
+      },
+      "hallucination": {
+        "mustContainAny": ["hà nội", "ha noi", "bangkok", "jakarta", "thủ đô", "capital"],
+        "mustNotContain": ["bitcoin", "crypto trading", "movie plot"]
+      },
+      "tokenBudget": { "maxTotalTokens": 5000, "maxCostUsd": 0.015 }
+    },
+    {
+      "id": "generate-flashcard-sql-basics",
+      "service": "generate-flashcard",
+      "route": "/api/ai/generate-flashcard",
+      "streamRoute": "/api/ai/stream/generate-flashcard",
+      "body": {
+        "topic": "SQL: SELECT, WHERE, JOIN — định nghĩa ngắn",
+        "type": "text",
+        "card_count": 3,
+        "difficulty": 2,
+        "language": "vi"
+      },
+      "hallucination": {
+        "mustContainAny": ["select", "where", "join", "sql"],
+        "mustNotContain": ["blockchain", "tiktok algorithm"]
+      },
+      "tokenBudget": { "maxTotalTokens": 5000, "maxCostUsd": 0.015 }
+    }
+  ]
+}

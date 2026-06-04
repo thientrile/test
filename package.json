@@ -9,6 +9,10 @@
 
     "test:unit": "node --test k6/socketio.test.js",
     "probe": "k6 run k6/probe.js",
+    "probe:gateway": "node scripts/gateway-probe.js",
+    "k6:gateway": "k6 run k6/gateway-load.js",
+    "test:ai": "node scripts/ai-eval.js",
+    "test:ai:unit": "node --test scripts/ai-eval.test.js",
 
     "k6:run": "k6 run k6/loadtest.js",
     "k6:docker": "docker compose --profile test run --rm k6",
