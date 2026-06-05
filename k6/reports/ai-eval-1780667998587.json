@@ -1,0 +1,382 @@
+{
+  "runAt": "2026-06-05T13:59:58.586Z",
+  "base": "https://api-gateway-service-475254343480.asia-southeast1.run.app",
+  "useStream": false,
+  "total": 12,
+  "passed": 10,
+  "httpFails": 0,
+  "hallucinationFails": 2,
+  "hallucinationFailRate": 0.16666666666666666,
+  "tokenBudgetFails": 0,
+  "latency": {
+    "count": 12,
+    "min": 803,
+    "max": 3171,
+    "avg": 1676,
+    "p50": 1231,
+    "p95": 3171
+  },
+  "ttfb": {
+    "count": 0,
+    "min": null,
+    "max": null,
+    "avg": null,
+    "p50": null,
+    "p95": null
+  },
+  "usageBefore": {
+    "items": [],
+    "groupBy": "service",
+    "total": 0
+  },
+  "usageAfter": {
+    "items": [
+      {
+        "group": "translation",
+        "totalCalls": 4,
+        "successCalls": 4,
+        "errorCalls": 0,
+        "totalTokenInput": 869,
+        "totalTokenOutput": 316,
+        "totalCostUsd": 0.000213,
+        "avgLatencyMs": 1217,
+        "uniqueUserCount": 1
+      },
+      {
+        "group": "suggest-replies",
+        "totalCalls": 4,
+        "successCalls": 2,
+        "errorCalls": 2,
+        "totalTokenInput": 561,
+        "totalTokenOutput": 139,
+        "totalCostUsd": 0.000112,
+        "avgLatencyMs": 1029,
+        "uniqueUserCount": 1
+      },
+      {
+        "group": "generate-flashcard",
+        "totalCalls": 2,
+        "successCalls": 2,
+        "errorCalls": 0,
+        "totalTokenInput": 1174,
+        "totalTokenOutput": 1041,
+        "totalCostUsd": 0.000534,
+        "avgLatencyMs": 2614,
+        "uniqueUserCount": 1
+      },
+      {
+        "group": "generate-quizz",
+        "totalCalls": 2,
+        "successCalls": 2,
+        "errorCalls": 0,
+        "totalTokenInput": 1416,
+        "totalTokenOutput": 1026,
+        "totalCostUsd": 0.000552,
+        "avgLatencyMs": 2320,
+        "uniqueUserCount": 1
+      }
+    ],
+    "groupBy": "service",
+    "total": 12
+  },
+  "results": [
+    {
+      "id": "translation-vi-en-hello",
+      "service": "translation",
+      "route": "/api/ai/translation",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 1168,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Hello, how are you? I'm just back from a long holiday. The weather is quite nice today, I'm planning to take an afternoon walk and maybe stop by the coffee shop near the company. If you're free, I'd l"
+      },
+      "tokens": null,
+      "tokenBudget": {
+        "pass": true,
+        "reasons": []
+      }
+    },
+    {
+      "id": "translation-en-vi-hello",
+      "service": "translation",
+      "route": "/api/ai/translation",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 1174,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Chào buổi sáng mọi người. Tôi hy vọng mọi người đã có một đêm nghỉ ngơi và cảm thấy sẵn sàng cho buổi họp nhóm hôm nay. Chúng ta sẽ xem lại sprint backlog, thảo luận về các vấn đề gây cản trở (blocker"
+      },
+      "tokens": {
+        "input": 216,
+        "output": 70,
+        "total": 286,
+        "costUsd": 0.0000496,
+        "latencyServerMs": 1065,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 286,
+        "costUsd": 0.0000496
+      }
+    },
+    {
+      "id": "translation-vi-en-datetime",
+      "service": "translation",
+      "route": "/api/ai/translation",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 1715,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "The project progress review meeting will take place at 2:30 PM on March 15, 2026, in room B201, Building C. Please bring your laptops and the past week's report documents. If you cannot attend in pers"
+      },
+      "tokens": {
+        "input": 202,
+        "output": 75,
+        "total": 277,
+        "costUsd": 0.0000502,
+        "latencyServerMs": 1068,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 277,
+        "costUsd": 0.0000502
+      }
+    },
+    {
+      "id": "translation-en-vi-apology",
+      "service": "translation",
+      "route": "/api/ai/translation",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 1231,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Tôi xin lỗi vì sự chậm trễ trong việc gửi báo cáo. Nhóm của chúng tôi đã gặp một vấn đề bất ngờ với đường ống xuất dữ liệu (data export pipeline) vào tối qua, và chúng tôi cần thêm thời gian để xác nh"
+      },
+      "tokens": {
+        "input": 237,
+        "output": 77,
+        "total": 314,
+        "costUsd": 0.0000545,
+        "latencyServerMs": 1610,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 314,
+        "costUsd": 0.0000545
+      }
+    },
+    {
+      "id": "suggest-replies-meeting",
+      "service": "suggest-replies",
+      "route": "/api/ai/suggest-replies",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 803,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Ok lun Nhận kèo Tui tới liền 👍 ✅ 🏃‍♀️ 😅 🙏 running late meeting busy"
+      },
+      "tokens": null,
+      "tokenBudget": {
+        "pass": true,
+        "reasons": []
+      }
+    },
+    {
+      "id": "suggest-replies-thanks",
+      "service": "suggest-replies",
+      "route": "/api/ai/suggest-replies",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 1790,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": false,
+        "reasons": [
+          "không bám ngữ cảnh (overlap < 1): cảm ơn, báo cáo, file, review"
+        ],
+        "textSample": ""
+      },
+      "tokens": {
+        "input": 281,
+        "output": 62,
+        "total": 343,
+        "costUsd": 0.000052900000000000005,
+        "latencyServerMs": 700,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 343,
+        "costUsd": 0.000052900000000000005
+      }
+    },
+    {
+      "id": "suggest-replies-deadline",
+      "service": "suggest-replies",
+      "route": "/api/ai/suggest-replies",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 819,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": false,
+        "reasons": [
+          "không bám ngữ cảnh (overlap < 1): deadline, thứ, nộp, gia hạn, bài"
+        ],
+        "textSample": ""
+      },
+      "tokens": null,
+      "tokenBudget": {
+        "pass": true,
+        "reasons": []
+      }
+    },
+    {
+      "id": "suggest-replies-birthday",
+      "service": "suggest-replies",
+      "route": "/api/ai/suggest-replies",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 1115,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Okela, chốt đơn! Nhận nhiệm vụ! Bí mật nha, hehe. 🤫 🎉 🎂 🥳 👍 surprise party secret"
+      },
+      "tokens": null,
+      "tokenBudget": {
+        "pass": true,
+        "reasons": []
+      }
+    },
+    {
+      "id": "quizz-true-false-water",
+      "service": "generate-quizz",
+      "route": "/api/ai/quizz",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 2035,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Sai Đúng Nhiệt độ sôi của nước luôn là 100 độ C, bất kể áp suất môi trường. true_false Nhiệt độ sôi của nước thay đổi theo áp suất. Ở áp suất tiêu chuẩn (1 atm), nước sôi ở 100 độ C. Tuy nhiên, ở độ c"
+      },
+      "tokens": null,
+      "tokenBudget": {
+        "pass": true,
+        "reasons": []
+      }
+    },
+    {
+      "id": "quizz-single-choice-git",
+      "service": "generate-quizz",
+      "route": "/api/ai/quizz",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 2813,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Chỉ lưu trữ metadata về tác giả và thời gian. Lưu một snapshot các thay đổi và metadata đi kèm. Lưu trữ toàn bộ lịch sử dự án. Chỉ lưu trữ các file đã được thay đổi. Theo mô tả, 'commit' trong Git lưu"
+      },
+      "tokens": {
+        "input": 713,
+        "output": 441,
+        "total": 1154,
+        "costUsd": 0.0002477,
+        "latencyServerMs": 1931,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 1154,
+        "costUsd": 0.0002477
+      }
+    },
+    {
+      "id": "generate-flashcard-capital",
+      "service": "generate-flashcard",
+      "route": "/api/ai/generate-flashcard",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 2278,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "đông nam á thủ đô địa lý chính trị việt nam hà nội Thủ đô của Việt Nam là gì? Thủ đô của Việt Nam là Hà Nội. Hà Nội nằm ở phía Bắc của đất nước, là trung tâm chính trị, văn hóa và giáo dục quan trọng."
+      },
+      "tokens": null,
+      "tokenBudget": {
+        "pass": true,
+        "reasons": []
+      }
+    },
+    {
+      "id": "generate-flashcard-sql-basics",
+      "service": "generate-flashcard",
+      "route": "/api/ai/generate-flashcard",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 3171,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "sql cơ bản truy vấn lập trình select truy vấn cột Trong SQL, làm thế nào để truy vấn dữ liệu từ một hoặc nhiều cột trong một bảng? Sử dụng mệnh đề `SELECT` để chỉ định các cột bạn muốn lấy từ bảng. Ví"
+      },
+      "tokens": {
+        "input": 589,
+        "output": 449,
+        "total": 1038,
+        "costUsd": 0.00023850000000000002,
+        "latencyServerMs": 2160,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 1038,
+        "costUsd": 0.00023850000000000002
+      }
+    }
+  ]
+}

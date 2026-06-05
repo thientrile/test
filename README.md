@@ -67,7 +67,7 @@ HTML tĩnh bằng browser, **không cần FE/server**).
 | `npm run probe` | Smoke 1 socket với backend thật |
 | `npm run probe:gateway` | Smoke `POST /api/auth/login` (1 req) |
 | `npm run k6:gateway` | HTTP login load — 10k @ 50/s (~200s); giảm rate nếu fail cao |
-| `npm run test:ai` | AI eval: latency, hallucination (golden), token/cost mỗi request |
+| `npm run test:ai` | AI eval: latency p95/p99, hallucination (golden), token/cost mỗi request |
 | `npm run test:ai:unit` | Unit test heuristic `ai-eval-lib` |
 | `npm run report` | Build `index.html` từ history rồi mở browser |
 | `npm run report:open` | Chỉ mở `k6/reports/index.html` (không cần server) |
@@ -134,6 +134,18 @@ echo). `Counter`: `ws_connected`, `ws_connect_error`, `ws_exception`,
 
 Each run → `k6/reports/run-<RUN_ID>.json`; `build-report.js` aggregates all runs
 into `index.html` (latest-run cards + history table + SVG trend charts).
+
+### AI eval (`npm run test:ai`)
+
+Độ trễ báo cáo theo **p95 / p99** (cùng convention với k6 load test), gồm tổng
+và từng `service`. Báo cáo JSON: `k6/reports/ai-eval-<timestamp>.json`.
+
+| Env | Ý nghĩa |
+|---|---|
+| `AI_EVAL_BASE` | Gateway URL (mặc định `GATEWAY_PROBE_BASE`) |
+| `AI_EVAL_USE_STREAM=1` | Dùng route SSE `/api/ai/stream/*` (thêm metric TTFB p95/p99) |
+| `AI_EVAL_MAX_P95_MS` | Ngưỡng fail nếu p95 tổng vượt (tùy chọn) |
+| `AI_EVAL_MAX_P99_MS` | Ngưỡng fail nếu p99 tổng vượt (tùy chọn) |
 
 ---
 

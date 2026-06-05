@@ -1,0 +1,609 @@
+{
+  "runAt": "2026-06-05T13:54:23.207Z",
+  "base": "https://api-gateway-service-475254343480.asia-southeast1.run.app",
+  "useStream": false,
+  "total": 20,
+  "passed": 16,
+  "httpFails": 1,
+  "hallucinationFails": 3,
+  "hallucinationFailRate": 0.15,
+  "tokenBudgetFails": 0,
+  "latency": {
+    "count": 19,
+    "min": 225,
+    "max": 2733,
+    "avg": 1400.5263157894738,
+    "p50": 1114,
+    "p95": 2733
+  },
+  "ttfb": {
+    "count": 0,
+    "min": null,
+    "max": null,
+    "avg": null,
+    "p50": null,
+    "p95": null
+  },
+  "usageBefore": {
+    "items": [],
+    "groupBy": "service",
+    "total": 0
+  },
+  "usageAfter": {
+    "items": [
+      {
+        "group": "translation",
+        "totalCalls": 5,
+        "successCalls": 5,
+        "errorCalls": 0,
+        "totalTokenInput": 1091,
+        "totalTokenOutput": 377,
+        "totalCostUsd": 0.00026,
+        "avgLatencyMs": 918,
+        "uniqueUserCount": 1
+      },
+      {
+        "group": "suggest-replies",
+        "totalCalls": 4,
+        "successCalls": 4,
+        "errorCalls": 0,
+        "totalTokenInput": 1122,
+        "totalTokenOutput": 287,
+        "totalCostUsd": 0.000227,
+        "avgLatencyMs": 929,
+        "uniqueUserCount": 1
+      },
+      {
+        "group": "generate-quizz",
+        "totalCalls": 4,
+        "successCalls": 4,
+        "errorCalls": 0,
+        "totalTokenInput": 2756,
+        "totalTokenOutput": 2088,
+        "totalCostUsd": 0.001111,
+        "avgLatencyMs": 2287,
+        "uniqueUserCount": 1
+      },
+      {
+        "group": "moderation",
+        "totalCalls": 3,
+        "successCalls": 3,
+        "errorCalls": 0,
+        "totalTokenInput": 147,
+        "totalTokenOutput": 308,
+        "totalCostUsd": 0.000138,
+        "avgLatencyMs": 998,
+        "uniqueUserCount": 1
+      },
+      {
+        "group": "generate-flashcard",
+        "totalCalls": 2,
+        "successCalls": 2,
+        "errorCalls": 0,
+        "totalTokenInput": 1174,
+        "totalTokenOutput": 1009,
+        "totalCostUsd": 0.000521,
+        "avgLatencyMs": 1844,
+        "uniqueUserCount": 1
+      }
+    ],
+    "groupBy": "service",
+    "total": 18
+  },
+  "results": [
+    {
+      "id": "translation-vi-en-hello",
+      "service": "translation",
+      "route": "/api/ai/translation",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 954,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Hello, how are you? I just got back from a long vacation. The weather is quite nice today, I'm thinking of taking an afternoon walk and maybe stopping by the coffee shop near the office. If you're fre"
+      },
+      "tokens": null,
+      "tokenBudget": {
+        "pass": true,
+        "reasons": []
+      }
+    },
+    {
+      "id": "translation-en-vi-hello",
+      "service": "translation",
+      "route": "/api/ai/translation",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 1045,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Chào buổi sáng mọi người. Tôi hy vọng mọi người đã có một đêm nghỉ ngơi và sẵn sàng cho buổi họp cập nhật tiến độ đội nhóm hôm nay. Chúng ta sẽ xem xét backlog của sprint, thảo luận về các vấn đề đang"
+      },
+      "tokens": {
+        "input": 216,
+        "output": 66,
+        "total": 282,
+        "costUsd": 0.000048,
+        "latencyServerMs": 810,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 282,
+        "costUsd": 0.000048
+      }
+    },
+    {
+      "id": "translation-vi-en-datetime",
+      "service": "translation",
+      "route": "/api/ai/translation",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 1121,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "The project progress review meeting will be held at 2:30 PM on March 15, 2026, in room B201, building C. Please bring your laptops and the report documents from the past week. If you cannot attend in "
+      },
+      "tokens": {
+        "input": 202,
+        "output": 78,
+        "total": 280,
+        "costUsd": 0.0000514,
+        "latencyServerMs": 797,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 280,
+        "costUsd": 0.0000514
+      }
+    },
+    {
+      "id": "translation-en-vi-apology",
+      "service": "translation",
+      "route": "/api/ai/translation",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 1109,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Tôi xin lỗi vì sự chậm trễ trong việc gửi báo cáo. Nhóm của chúng tôi đã gặp một sự cố bất ngờ với pipeline xuất dữ liệu vào tối hôm qua và chúng tôi cần thêm thời gian để xác thực các số liệu. Phiên "
+      },
+      "tokens": {
+        "input": 237,
+        "output": 81,
+        "total": 318,
+        "costUsd": 0.0000561,
+        "latencyServerMs": 1008,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 318,
+        "costUsd": 0.0000561
+      }
+    },
+    {
+      "id": "translation-vi-en-tech-term",
+      "service": "translation",
+      "route": "/api/ai/translation",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 1114,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "The backend architecture uses REST APIs with JWT authentication, session caching via Redis, and synchronous communication using gRPC between microservices. The gateway receives HTTP requests from clie"
+      },
+      "tokens": {
+        "input": 214,
+        "output": 86,
+        "total": 300,
+        "costUsd": 0.0000558,
+        "latencyServerMs": 995,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 300,
+        "costUsd": 0.0000558
+      }
+    },
+    {
+      "id": "moderation-safe",
+      "service": "moderation",
+      "route": "/api/ai/moderation",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 1106,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": false,
+        "reasons": [
+          "thiếu từ khóa kỳ vọng: allow, safe, ok, pass, review, approve, verdict, flag, spam, an toan, cho phep"
+        ],
+        "textSample": ""
+      },
+      "tokens": null,
+      "tokenBudget": {
+        "pass": true,
+        "reasons": []
+      }
+    },
+    {
+      "id": "moderation-safe-short",
+      "service": "moderation",
+      "route": "/api/ai/moderation",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 898,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": false,
+        "reasons": [
+          "thiếu từ khóa kỳ vọng: allow, safe, ok, pass, review, approve, verdict"
+        ],
+        "textSample": ""
+      },
+      "tokens": {
+        "input": 50,
+        "output": 124,
+        "total": 174,
+        "costUsd": 0.000054600000000000006,
+        "latencyServerMs": 985,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 174,
+        "costUsd": 0.000054600000000000006
+      }
+    },
+    {
+      "id": "moderation-promo-soft",
+      "service": "moderation",
+      "route": "/api/ai/moderation",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 1339,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": ""
+      },
+      "tokens": {
+        "input": 35,
+        "output": 43,
+        "total": 78,
+        "costUsd": 0.000020700000000000002,
+        "latencyServerMs": 783,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 78,
+        "costUsd": 0.000020700000000000002
+      }
+    },
+    {
+      "id": "suggest-replies-meeting",
+      "service": "suggest-replies",
+      "route": "/api/ai/suggest-replies",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 1012,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": false,
+        "reasons": [
+          "không bám ngữ cảnh (overlap < 1): họp, 3, meet, link"
+        ],
+        "textSample": "Ok chốt! Nhận ạ, em xem liền. Ok ok, 5p nha. 👍 ✅ 🏃‍♀️ 👀 💯 late hurry approved"
+      },
+      "tokens": null,
+      "tokenBudget": {
+        "pass": true,
+        "reasons": []
+      }
+    },
+    {
+      "id": "suggest-replies-thanks",
+      "service": "suggest-replies",
+      "route": "/api/ai/suggest-replies",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 1120,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Ok ok, tui check liền Got it, sẽ bổ sung Sẵn sàng, cần gì cứ nói ✅ 🚀 💡 📊 👍 review data marketing"
+      },
+      "tokens": {
+        "input": 281,
+        "output": 70,
+        "total": 351,
+        "costUsd": 0.0000561,
+        "latencyServerMs": 892,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 351,
+        "costUsd": 0.0000561
+      }
+    },
+    {
+      "id": "suggest-replies-deadline",
+      "service": "suggest-replies",
+      "route": "/api/ai/suggest-replies",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 1106,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Okela bro! Nhận info! Cảm ơn nha Check list liền ✅ 🚀 🔥 💡 💪 deadline coding support"
+      },
+      "tokens": {
+        "input": 278,
+        "output": 72,
+        "total": 350,
+        "costUsd": 0.0000566,
+        "latencyServerMs": 1010,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 350,
+        "costUsd": 0.0000566
+      }
+    },
+    {
+      "id": "suggest-replies-birthday",
+      "service": "suggest-replies",
+      "route": "/api/ai/suggest-replies",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 927,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Okela, nhận lệnh! Chốt kèo, tới giờ G! Bí mật nha, hú hồn! 🤫 🎉 🎂 🥳 💸 surprise party secret"
+      },
+      "tokens": {
+        "input": 283,
+        "output": 65,
+        "total": 348,
+        "costUsd": 0.0000543,
+        "latencyServerMs": 997,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 348,
+        "costUsd": 0.0000543
+      }
+    },
+    {
+      "id": "quizz-true-false-water",
+      "service": "generate-quizz",
+      "route": "/api/ai/quizz",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 2079,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Sai Đúng Nhiệt độ sôi của nước không thay đổi bất kể độ cao. true_false Nhiệt độ sôi của nước thay đổi theo áp suất. Ở độ cao lớn, áp suất khí quyển giảm, làm giảm nhiệt độ sôi của nước. Đúng Sai Uống"
+      },
+      "tokens": null,
+      "tokenBudget": {
+        "pass": true,
+        "reasons": []
+      }
+    },
+    {
+      "id": "quizz-single-choice-git",
+      "service": "generate-quizz",
+      "route": "/api/ai/quizz",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 2639,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Hệ thống quản lý tập trung Hệ thống quản lý phiên bản phân tán Hệ thống quản lý mã nguồn tập trung Hệ thống lưu trữ đám mây Git được định nghĩa là hệ thống gì? single_choice Văn bản gốc nêu rõ: \"Git l"
+      },
+      "tokens": {
+        "input": 713,
+        "output": 415,
+        "total": 1128,
+        "costUsd": 0.00023730000000000002,
+        "latencyServerMs": 1947,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 1128,
+        "costUsd": 0.00023730000000000002
+      }
+    },
+    {
+      "id": "generate-flashcard-capital",
+      "service": "generate-flashcard",
+      "route": "/api/ai/generate-flashcard",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 1600,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "đông nam á thủ đô địa lý chính trị việt nam hà nội miền bắc Việt Nam có thủ đô là gì? Thủ đô của Việt Nam là Hà Nội. Đây là trung tâm chính trị, văn hóa và giáo dục quan trọng của đất nước, nằm ở phía"
+      },
+      "tokens": null,
+      "tokenBudget": {
+        "pass": true,
+        "reasons": []
+      }
+    },
+    {
+      "id": "generate-flashcard-sql-basics",
+      "service": "generate-flashcard",
+      "route": "/api/ai/generate-flashcard",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 2323,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "sql database truy vấn cơ sở dữ liệu select truy vấn cột Trong SQL, mệnh đề nào được sử dụng để truy vấn dữ liệu từ một hoặc nhiều bảng? Mệnh đề SELECT được sử dụng để chỉ định các cột bạn muốn lấy ra "
+      },
+      "tokens": {
+        "input": 589,
+        "output": 494,
+        "total": 1083,
+        "costUsd": 0.0002565,
+        "latencyServerMs": 1475,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 1083,
+        "costUsd": 0.0002565
+      }
+    },
+    {
+      "id": "search-doc-microservices",
+      "service": "search",
+      "route": "/api/ai/search",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 225,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": ""
+      },
+      "tokens": null,
+      "tokenBudget": {
+        "pass": true,
+        "reasons": []
+      }
+    },
+    {
+      "id": "search-messages-sprint",
+      "service": "search-messages",
+      "route": "/api/ai/search-messages",
+      "stream": false,
+      "httpOk": false,
+      "latencyMs": 2438,
+      "ttfbMs": null,
+      "error": "HTTP 503",
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Service unavailable: Error serializing response: Failed to serialize message: expected object with SearchMessagesResponse structure, got array instead SERVICE_UNAVAILABLE"
+      },
+      "tokens": null,
+      "tokenBudget": {
+        "pass": true,
+        "reasons": []
+      }
+    },
+    {
+      "id": "quizz-multiple-choice-db",
+      "service": "generate-quizz",
+      "route": "/api/ai/quizz",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 2733,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Lưu trữ document dưới dạng BSON Hỗ trợ index đơn, compound và text search Sử dụng Aggregation pipeline với $match, $group, $lookup Được sử dụng chủ yếu làm cache hoặc message broker Các tính năng và k"
+      },
+      "tokens": null,
+      "tokenBudget": {
+        "pass": true,
+        "reasons": []
+      }
+    },
+    {
+      "id": "quizz-text-essay",
+      "service": "generate-quizz",
+      "route": "/api/ai/quizz",
+      "stream": false,
+      "httpOk": true,
+      "latencyMs": 2160,
+      "ttfbMs": null,
+      "error": null,
+      "hallucination": {
+        "pass": true,
+        "reasons": [],
+        "textSample": "Giải thích vai trò của Redis adapter khi scale ngang (horizontal scaling) cho dịch vụ Socket.IO và tại sao nó lại cần thiết. text Redis adapter cần thiết để đảm bảo các sự kiện được broadcast (truyền "
+      },
+      "tokens": {
+        "input": 699,
+        "output": 723,
+        "total": 1422,
+        "costUsd": 0.00035910000000000006,
+        "latencyServerMs": 2623,
+        "model": "gemini-2.5-flash-lite"
+      },
+      "tokenBudget": {
+        "pass": true,
+        "reasons": [],
+        "totalTokens": 1422,
+        "costUsd": 0.00035910000000000006
+      }
+    }
+  ]
+}

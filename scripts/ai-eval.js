@@ -1,6 +1,6 @@
 'use strict';
 
-// Đánh giá AI: độ trễ (HTTP + SSE TTFB), tỉ lệ hallucination (golden heuristic), chi phí token/request.
+// Đánh giá AI: độ trễ p95/p99 (HTTP + SSE TTFB), hallucination (golden), token/request.
 //
 //   npm run test:ai
 //   AI_EVAL_USE_STREAM=1 npm run test:ai
@@ -18,11 +18,15 @@ const {
   scoreHallucination,
   scoreTokenBudget,
   summarizeLatencies,
+  summarizeLatenciesByGroup,
+  scoreLatencyBudget,
 } = require('../lib/ai-eval-lib');
 const {
   createClient,
   postJson,
+  getJson,
   postSse,
+  getSse,
   getUsageReport,
 } = require('../lib/ai-http');
 
@@ -33,6 +37,14 @@ const AI_BASE =
   process.env.AI_EVAL_BASE ||
   process.env.GATEWAY_PROBE_BASE ||
   config.gatewayProbeBase;
+const LATENCY_BUDGET = {
+  maxP95Ms: process.env.AI_EVAL_MAX_P95_MS
+    ? Number(process.env.AI_EVAL_MAX_P95_MS)
+    : null,
+  maxP99Ms: process.env.AI_EVAL_MAX_P99_MS
+    ? Number(process.env.AI_EVAL_MAX_P99_MS)
+    : null,
+};
 
 async function resolveCredentials() {
   const u = process.env.GATEWAY_PROBE_USERNAME;
@@ -61,6 +73,25 @@ async function resolveCredentials() {
   throw new Error('Set GATEWAY_PROBE_USERNAME or run bootstrap/prepare');
 }
 
+function resolveRoomId() {
+  if (process.env.AI_EVAL_ROOM_ID) return process.env.AI_EVAL_ROOM_ID;
+  const roomJson = path.join(__dirname, '..', 'k6', 'room.json');
+  if (!fs.existsSync(roomJson)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(roomJson, 'utf8')).roomId || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Thay placeholder $ROOM_ID trong body/query (search-messages). */
+function resolveCaseBody(body) {
+  const roomId = resolveRoomId();
+  const json = JSON.stringify(body || {});
+  const resolved = json.replace(/"\$ROOM_ID"/g, roomId ? JSON.stringify(roomId) : 'null');
+  return JSON.parse(resolved);
+}
+
 async function fetchLatestUsageLog(userId, service, since) {
   if (!config.mongoUri) return null;
   await mongo.connect();
@@ -81,12 +112,20 @@ async function fetchLatestUsageLog(userId, service, since) {
 async function runCase(client, caseDef, userId, since) {
   const route = USE_STREAM && caseDef.streamRoute ? caseDef.streamRoute : caseDef.route;
   const isStream = route.includes('/stream/');
+  const method = (caseDef.method || 'POST').toUpperCase();
+  const body = resolveCaseBody(caseDef.body);
 
   let result;
   if (isStream) {
-    result = await postSse(client, route, caseDef.body);
+    result =
+      method === 'GET'
+        ? await getSse(client, route, body)
+        : await postSse(client, route, body);
+  } else if (method === 'GET') {
+    result = await getJson(client, route, body);
+    result.ttfbMs = null;
   } else {
-    result = await postJson(client, route, caseDef.body);
+    result = await postJson(client, route, body);
     result.ttfbMs = null;
   }
 
@@ -125,12 +164,23 @@ function printReport(summary) {
   console.log(`stream:   ${summary.useStream}`);
   console.log(`cases:    ${summary.passed}/${summary.total} passed`);
   console.log(
-    `latency:  p50=${summary.latency.p50}ms  p95=${summary.latency.p95}ms  avg=${summary.latency.avg?.toFixed(0)}ms`,
+    `latency:  p95=${summary.latency.p95}ms  p99=${summary.latency.p99}ms  avg=${summary.latency.avg?.toFixed(0)}ms`,
   );
   if (summary.ttfb.count) {
     console.log(
-      `ttfb:     p50=${summary.ttfb.p50}ms  p95=${summary.ttfb.p95}ms (SSE only)`,
+      `ttfb:     p95=${summary.ttfb.p95}ms  p99=${summary.ttfb.p99}ms (SSE only)`,
     );
+  }
+  if (summary.latencyBudget && !summary.latencyBudget.pass) {
+    console.log(
+      `latency budget FAIL: ${summary.latencyBudget.reasons.join('; ')}`,
+    );
+  }
+  if (summary.latencyByService && Object.keys(summary.latencyByService).length) {
+    console.log('\n--- latency by service (p95 / p99) ---');
+    for (const [svc, s] of Object.entries(summary.latencyByService)) {
+      console.log(`  ${svc}: p95=${s.p95}ms  p99=${s.p99}ms  n=${s.count}`);
+    }
   }
   console.log(
     `hallucination fail rate: ${(summary.hallucinationFailRate * 100).toFixed(1)}% (${summary.hallucinationFails}/${summary.total})`,
@@ -216,6 +266,10 @@ async function main() {
     (r) => r.httpOk && r.hallucination.pass && r.tokenBudget.pass,
   ).length;
 
+  const latency = summarizeLatencies(latencies);
+  const ttfb = summarizeLatencies(ttfbs);
+  const latencyBudget = scoreLatencyBudget(latency, LATENCY_BUDGET);
+
   const summary = {
     runAt: new Date().toISOString(),
     base: AI_BASE,
@@ -226,8 +280,10 @@ async function main() {
     hallucinationFails,
     hallucinationFailRate: results.length ? hallucinationFails / results.length : 0,
     tokenBudgetFails,
-    latency: summarizeLatencies(latencies),
-    ttfb: summarizeLatencies(ttfbs),
+    latency,
+    latencyByService: summarizeLatenciesByGroup(results),
+    latencyBudget,
+    ttfb,
     usageBefore,
     usageAfter,
     results,
@@ -246,7 +302,10 @@ async function main() {
   if (config.mongoUri) await mongo.close().catch(() => {});
 
   const exitFail =
-    httpFails > 0 || hallucinationFails > 0 || tokenBudgetFails > 0;
+    httpFails > 0 ||
+    hallucinationFails > 0 ||
+    tokenBudgetFails > 0 ||
+    !latencyBudget.pass;
   process.exit(exitFail ? 1 : 0);
 }
 

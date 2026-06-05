@@ -6,6 +6,8 @@ const {
   scoreHallucination,
   scoreTokenBudget,
   summarizeLatencies,
+  summarizeLatenciesByGroup,
+  scoreLatencyBudget,
 } = require('../lib/ai-eval-lib');
 
 describe('scoreHallucination', () => {
@@ -51,9 +53,40 @@ describe('scoreTokenBudget', () => {
 });
 
 describe('summarizeLatencies', () => {
-  it('computes p95', () => {
+  it('computes p95 and p99', () => {
     const s = summarizeLatencies([10, 20, 30, 40, 100]);
     assert.equal(s.p95, 100);
+    assert.equal(s.p99, 100);
     assert.equal(s.count, 5);
+  });
+
+  it('computes distinct p99 on larger sample', () => {
+    const s = summarizeLatencies(Array.from({ length: 100 }, (_, i) => i + 1));
+    assert.equal(s.p95, 95);
+    assert.equal(s.p99, 99);
+  });
+});
+
+describe('summarizeLatenciesByGroup', () => {
+  it('groups by service', () => {
+    const g = summarizeLatenciesByGroup([
+      { httpOk: true, service: 'translation', latencyMs: 100 },
+      { httpOk: true, service: 'translation', latencyMs: 200 },
+      { httpOk: true, service: 'quizz', latencyMs: 3000 },
+    ]);
+    assert.equal(g.translation.count, 2);
+    assert.equal(g.translation.p95, 200);
+    assert.equal(g.quizz.p99, 3000);
+  });
+});
+
+describe('scoreLatencyBudget', () => {
+  it('flags over p95/p99 thresholds', () => {
+    const r = scoreLatencyBudget({ p95: 3200, p99: 4000 }, {
+      maxP95Ms: 3000,
+      maxP99Ms: 3500,
+    });
+    assert.equal(r.pass, false);
+    assert.equal(r.reasons.length, 2);
   });
 });

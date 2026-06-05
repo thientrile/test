@@ -1,29 +1,37 @@
 {
-  "description": "Golden cases — heuristic hallucination (mustContain / mustNotContain / contextKeywords). service phải khớp AIUsageLogs (moderation, translation, suggest-replies, generate-quizz, generate-flashcard).",
+  "description": "Golden cases (12): translation×4, suggest-replies×4, generate-quizz×2, generate-flashcard×2. Heuristic hallucination (mustContain / mustNotContain / contextKeywords). Chưa cover: summary-document (file), transcribe-attachment (attachmentId thật).",
   "cases": [
     {
       "id": "translation-vi-en-hello",
       "service": "translation",
       "route": "/api/ai/translation",
       "streamRoute": "/api/ai/stream/translation",
-      "body": { "text": "Xin chào, bạn khỏe không?", "from": "vi", "to": "en" },
+      "body": {
+        "text": "Xin chào, bạn khỏe không? Mình vừa quay lại sau kỳ nghỉ dài. Hôm nay trời khá đẹp, mình định đi dạo buổi chiều và có thể ghé quán cà phê gần công ty. Nếu bạn rảnh thì mình rủ bạn đi cùng nhé.",
+        "from": "vi",
+        "to": "en"
+      },
       "hallucination": {
         "mustContainAny": ["hello", "hi", "how are you", "greet"],
         "mustNotContain": ["bitcoin", "paris tower", "einstein", "nuclear"]
       },
-      "tokenBudget": { "maxTotalTokens": 800, "maxCostUsd": 0.003 }
+      "tokenBudget": { "maxTotalTokens": 1200, "maxCostUsd": 0.005 }
     },
     {
       "id": "translation-en-vi-hello",
       "service": "translation",
       "route": "/api/ai/translation",
       "streamRoute": "/api/ai/stream/translation",
-      "body": { "text": "Good morning", "from": "en", "to": "vi" },
+      "body": {
+        "text": "Good morning everyone. I hope you all had a restful night and feel ready for today's team standup. We will review the sprint backlog, discuss blockers, and align on priorities before noon.",
+        "from": "en",
+        "to": "vi"
+      },
       "hallucination": {
         "mustContainAny": ["chào", "sáng", "buổi"],
         "mustNotContain": ["bitcoin", "stock market", "weather in london"]
       },
-      "tokenBudget": { "maxTotalTokens": 800, "maxCostUsd": 0.003 }
+      "tokenBudget": { "maxTotalTokens": 1200, "maxCostUsd": 0.005 }
     },
     {
       "id": "translation-vi-en-datetime",
@@ -31,7 +39,7 @@
       "route": "/api/ai/translation",
       "streamRoute": "/api/ai/stream/translation",
       "body": {
-        "text": "Cuộc họp lúc 14:30 ngày 15/03/2026 tại phòng B201.",
+        "text": "Cuộc họp review tiến độ dự án sẽ diễn ra lúc 14:30 ngày 15/03/2026 tại phòng B201, tòa nhà C. Mọi người vui lòng mang laptop và tài liệu báo cáo tuần vừa qua. Nếu không tham dự trực tiếp, hãy tham gia qua Google Meet theo link trong lịch.",
         "from": "vi",
         "to": "en"
       },
@@ -39,7 +47,7 @@
         "mustContainAny": ["14:30", "14.30", "15/03", "march", "meeting", "b201"],
         "mustNotContain": ["bitcoin", "cancelled forever", "new york stock"]
       },
-      "tokenBudget": { "maxTotalTokens": 1000, "maxCostUsd": 0.004 }
+      "tokenBudget": { "maxTotalTokens": 1400, "maxCostUsd": 0.006 }
     },
     {
       "id": "translation-en-vi-apology",
@@ -47,7 +55,7 @@
       "route": "/api/ai/translation",
       "streamRoute": "/api/ai/stream/translation",
       "body": {
-        "text": "I am sorry for the delay in sending the report.",
+        "text": "I am sorry for the delay in sending the report. Our team encountered an unexpected issue with the data export pipeline yesterday evening, and we needed extra time to validate the numbers. The corrected version is attached and should address all comments from last week's review.",
         "from": "en",
         "to": "vi"
       },
@@ -55,85 +63,7 @@
         "mustContainAny": ["xin lỗi", "lỗi", "trễ", "báo cáo", "delay", "sorry"],
         "mustNotContain": ["bitcoin", "lawsuit", "court order"]
       },
-      "tokenBudget": { "maxTotalTokens": 900, "maxCostUsd": 0.003 }
-    },
-    {
-      "id": "translation-vi-en-tech-term",
-      "service": "translation",
-      "route": "/api/ai/translation",
-      "streamRoute": "/api/ai/stream/translation",
-      "body": {
-        "text": "API REST dùng JWT và Redis cache.",
-        "from": "vi",
-        "to": "en"
-      },
-      "hallucination": {
-        "mustContainAny": ["api", "rest", "jwt", "redis"],
-        "mustNotContain": ["blockchain mining", "quantum computer price"]
-      },
-      "tokenBudget": { "maxTotalTokens": 900, "maxCostUsd": 0.003 }
-    },
-    {
-      "id": "moderation-safe",
-      "service": "moderation",
-      "route": "/api/ai/moderation",
-      "streamRoute": "/api/ai/stream/moderation",
-      "body": { "text": "Chúc bạn một ngày làm việc hiệu quả và vui vẻ." },
-      "hallucination": {
-        "mustContainAny": [
-          "allow",
-          "safe",
-          "ok",
-          "pass",
-          "review",
-          "approve",
-          "verdict",
-          "flag",
-          "spam",
-          "an toan",
-          "cho phep"
-        ],
-        "mustNotContain": ["block", "ban", "illegal drug recipe"]
-      },
-      "tokenBudget": { "maxTotalTokens": 1200, "maxCostUsd": 0.004 }
-    },
-    {
-      "id": "moderation-safe-short",
-      "service": "moderation",
-      "route": "/api/ai/moderation",
-      "streamRoute": "/api/ai/stream/moderation",
-      "body": { "text": "Cảm ơn bạn nhé!" },
-      "hallucination": {
-        "mustContainAny": [
-          "allow",
-          "safe",
-          "ok",
-          "pass",
-          "review",
-          "approve",
-          "verdict"
-        ],
-        "mustNotContain": ["block", "ban", "violence", "weapon"]
-      },
-      "tokenBudget": { "maxTotalTokens": 1000, "maxCostUsd": 0.003 }
-    },
-    {
-      "id": "moderation-promo-soft",
-      "service": "moderation",
-      "route": "/api/ai/moderation",
-      "streamRoute": "/api/ai/stream/moderation",
-      "body": {
-        "text": "Shop đang giảm giá 20% cuối tuần, inbox để nhận mã."
-      },
-      "hallucination": {
-        "mustNotContain": [
-          "illegal drug",
-          "weapon",
-          "kill",
-          "hack bank account"
-        ]
-      },
-      "tokenBudget": { "maxTotalTokens": 1200, "maxCostUsd": 0.004 }
+      "tokenBudget": { "maxTotalTokens": 1300, "maxCostUsd": 0.005 }
     },
     {
       "id": "suggest-replies-meeting",
@@ -142,8 +72,10 @@
       "streamRoute": "/api/ai/stream/suggest-replies",
       "body": {
         "contextMessages": [
-          "Mình họp lúc 3 giờ chiều nhé",
-          "Ok, mình sẽ gửi link Google Meet"
+          "Mình họp lúc 3 giờ chiều nhé, agenda gồm review sprint và phân công task tuần sau.",
+          "Ok, mình sẽ gửi link Google Meet trước giờ họp 10 phút.",
+          "Ai chưa xem slide demo thì xem trước trong folder dự án giúp mình.",
+          "Nếu trễ được không quá 5 phút vì mình đang họp với khách hàng."
         ]
       },
       "hallucination": {
@@ -151,7 +83,7 @@
         "minContextOverlap": 1,
         "mustNotContain": ["bitcoin", "crypto", "lottery", "viagra"]
       },
-      "tokenBudget": { "maxTotalTokens": 2000, "maxCostUsd": 0.006 }
+      "tokenBudget": { "maxTotalTokens": 2800, "maxCostUsd": 0.008 }
     },
     {
       "id": "suggest-replies-thanks",
@@ -160,8 +92,10 @@
       "streamRoute": "/api/ai/stream/suggest-replies",
       "body": {
         "contextMessages": [
-          "Cảm ơn bạn đã gửi file báo cáo",
-          "Mình đã nhận và sẽ review sớm"
+          "Cảm ơn bạn đã gửi file báo cáo Q1 đầy đủ số liệu và biểu đồ.",
+          "Mình đã nhận và sẽ review sớm, dự kiến phản hồi trước thứ Tư.",
+          "Phần mục chi phí marketing bạn có thể bổ sung thêm breakdown theo kênh không?",
+          "Nếu cần thêm dữ liệu raw thì mình có thể export từ dashboard."
         ]
       },
       "hallucination": {
@@ -169,7 +103,7 @@
         "minContextOverlap": 1,
         "mustNotContain": ["bitcoin", "investment", "dating"]
       },
-      "tokenBudget": { "maxTotalTokens": 2000, "maxCostUsd": 0.006 }
+      "tokenBudget": { "maxTotalTokens": 2800, "maxCostUsd": 0.008 }
     },
     {
       "id": "suggest-replies-deadline",
@@ -178,8 +112,10 @@
       "streamRoute": "/api/ai/stream/suggest-replies",
       "body": {
         "contextMessages": [
-          "Deadline nộp bài là thứ Sáu tuần này",
-          "Ai chưa xong nhắn mình để gia hạn"
+          "Deadline nộp bài là thứ Sáu tuần này trước 23:59.",
+          "Ai chưa xong nhắn mình để gia hạn, nhưng tối đa thêm 2 ngày.",
+          "Bài nộp cần có phần mô tả kiến trúc, kết quả test và link repository.",
+          "Nhóm nào gặp lỗi môi trường thì ping channel support để được hỗ trợ nhanh."
         ]
       },
       "hallucination": {
@@ -187,7 +123,7 @@
         "minContextOverlap": 1,
         "mustNotContain": ["crypto", "casino", "lottery"]
       },
-      "tokenBudget": { "maxTotalTokens": 2200, "maxCostUsd": 0.006 }
+      "tokenBudget": { "maxTotalTokens": 3000, "maxCostUsd": 0.009 }
     },
     {
       "id": "suggest-replies-birthday",
@@ -196,8 +132,10 @@
       "streamRoute": "/api/ai/stream/suggest-replies",
       "body": {
         "contextMessages": [
-          "Hôm nay là sinh nhật của Lan",
-          "Team mình chuẩn bị surprise party lúc 6h"
+          "Hôm nay là sinh nhật của Lan, mọi người nhớ giữ bí mật nhé.",
+          "Team mình chuẩn bị surprise party lúc 6h tại phòng họp tầng 3.",
+          "Mỗi người đóng góp 50k để mua bánh và quà nhỏ, chuyển khoản cho Minh.",
+          "Dress code casual, ai đến sớm giúp dựng backdrop và bóng bay."
         ]
       },
       "hallucination": {
@@ -205,7 +143,7 @@
         "minContextOverlap": 1,
         "mustNotContain": ["bitcoin", "medical diagnosis", "prescription"]
       },
-      "tokenBudget": { "maxTotalTokens": 2200, "maxCostUsd": 0.006 }
+      "tokenBudget": { "maxTotalTokens": 3000, "maxCostUsd": 0.009 }
     },
     {
       "id": "quizz-true-false-water",
@@ -213,7 +151,7 @@
       "route": "/api/ai/quizz",
       "streamRoute": "/api/ai/stream/quizz",
       "body": {
-        "text": "Nước sôi ở 100 độ C ở áp suất tiêu chuẩn. Con người cần nước để sống.",
+        "text": "Nước sôi ở 100 độ C ở áp suất tiêu chuẩn (1 atm). Ở độ cao lớn, áp suất giảm nên nhiệt độ sôi cũng thấp hơn. Con người cần nước để duy trì các phản ứng sinh hóa, điều hòa thân nhiệt và vận chuyển chất dinh dưỡng. Thiếu nước kéo dài có thể gây mệt mỏi, chóng mặt và suy giảm tập trung. Tuy nhiên, uống quá nhiều nước trong thời gian ngắn cũng có thể gây rối loạn điện giải.",
         "type": "text",
         "question_type": "true_false",
         "question_max": 2,
@@ -223,7 +161,7 @@
         "mustContainAny": ["question", "câu", "true", "false", "đúng", "sai", "100"],
         "mustNotContain": ["bitcoin", "stock ticker", "celebrity gossip"]
       },
-      "tokenBudget": { "maxTotalTokens": 4000, "maxCostUsd": 0.012 }
+      "tokenBudget": { "maxTotalTokens": 5000, "maxCostUsd": 0.015 }
     },
     {
       "id": "quizz-single-choice-git",
@@ -231,7 +169,7 @@
       "route": "/api/ai/quizz",
       "streamRoute": "/api/ai/stream/quizz",
       "body": {
-        "text": "Git dùng commit để lưu snapshot. Branch cho phép phát triển song song.",
+        "text": "Git là hệ thống quản lý phiên bản phân tán. Mỗi commit lưu một snapshot thay đổi kèm metadata như tác giả và thời gian. Branch cho phép nhiều nhánh phát triển song song mà không ảnh hưởng nhánh chính. Merge kết hợp lịch sử từ nhánh feature vào main; rebase có thể làm lịch sử gọn hơn nhưng cần cẩn thận khi làm việc nhóm. Remote repository như origin giúp đồng bộ code giữa các máy và thành viên trong team.",
         "type": "text",
         "question_type": "single_choice",
         "question_max": 2,
@@ -241,7 +179,7 @@
         "mustContainAny": ["git", "commit", "branch", "question", "câu", "choice"],
         "mustNotContain": ["recipe", "cooking", "lottery"]
       },
-      "tokenBudget": { "maxTotalTokens": 4500, "maxCostUsd": 0.014 }
+      "tokenBudget": { "maxTotalTokens": 5500, "maxCostUsd": 0.017 }
     },
     {
       "id": "generate-flashcard-capital",
@@ -249,7 +187,7 @@
       "route": "/api/ai/generate-flashcard",
       "streamRoute": "/api/ai/stream/generate-flashcard",
       "body": {
-        "topic": "Thủ đô các nước Đông Nam Á: Việt Nam, Thái Lan, Indonesia",
+        "topic": "Thủ đô các nước Đông Nam Á: Việt Nam (Hà Nội), Thái Lan (Bangkok), Indonesia (Jakarta), Malaysia (Kuala Lumpur), Philippines (Manila). Mỗi thẻ gồm tên quốc gia, thủ đô và một ghi chú ngắn về vị trí địa lý hoặc vai trò hành chính.",
         "type": "text",
         "card_count": 3,
         "difficulty": 2,
@@ -259,7 +197,7 @@
         "mustContainAny": ["hà nội", "ha noi", "bangkok", "jakarta", "thủ đô", "capital"],
         "mustNotContain": ["bitcoin", "crypto trading", "movie plot"]
       },
-      "tokenBudget": { "maxTotalTokens": 5000, "maxCostUsd": 0.015 }
+      "tokenBudget": { "maxTotalTokens": 6000, "maxCostUsd": 0.018 }
     },
     {
       "id": "generate-flashcard-sql-basics",
@@ -267,7 +205,7 @@
       "route": "/api/ai/generate-flashcard",
       "streamRoute": "/api/ai/stream/generate-flashcard",
       "body": {
-        "topic": "SQL: SELECT, WHERE, JOIN — định nghĩa ngắn",
+        "topic": "SQL cơ bản cho người mới: SELECT để truy vấn cột, WHERE để lọc điều kiện, JOIN để kết hợp bảng theo khóa, GROUP BY để gom nhóm và ORDER BY để sắp xếp kết quả. Mỗi flashcard nên có định nghĩa ngắn và một ví dụ câu lệnh minh họa.",
         "type": "text",
         "card_count": 3,
         "difficulty": 2,
@@ -277,7 +215,7 @@
         "mustContainAny": ["select", "where", "join", "sql"],
         "mustNotContain": ["blockchain", "tiktok algorithm"]
       },
-      "tokenBudget": { "maxTotalTokens": 5000, "maxCostUsd": 0.015 }
+      "tokenBudget": { "maxTotalTokens": 6000, "maxCostUsd": 0.018 }
     }
   ]
 }
