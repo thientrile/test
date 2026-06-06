@@ -54,6 +54,7 @@ const MAX_VUS = parseInt(__ENV.MAX_VUS, 10) || 600;
 
 const SOCKET_BASE = __ENV.SOCKET_BASE || 'ws://nginx:8080';
 const NAMESPACE = __ENV.SOCKET_NAMESPACE || '/chat';
+const SEND_EVENT = __ENV.SEND_EVENT || 'send_ask';
 const WS_URL = `${SOCKET_BASE}/socket.io/?EIO=4&transport=websocket`;
 
 const RUN_ID = __ENV.RUN_ID || `${Date.now()}`;
@@ -128,6 +129,7 @@ const cJoinAckFail = new Counter('ws_join_ack_fail');
 const cJoinNoAck = new Counter('ws_join_no_ack');
 const cFired = new Counter('ws_fired');
 const cMsgSent = new Counter('ws_message_sent');
+const cSendSuccess = new Counter('ws_send_success');
 const cSendSkippedDisconnected = new Counter('ws_send_skipped_disconnected');
 const cSendAckOk = new Counter('ws_send_ack_ok');
 const cSendAckFail = new Counter('ws_send_ack_fail');
@@ -263,7 +265,7 @@ function runSocketAttempt(data, user, token, roomId, holdDeadline, attemptNo) {
     let socketOpen = true;
     let fireStarted = false;
     let sent = 0; // messages queued by this VU
-    let ackedCount = 0; // message:send acks received
+    let ackedCount = 0; // send event acks received
     let upsertCount = 0; // own message:upsert echoes matched
     const rtPending = {}; // clientMsgId -> sentAt (round-trip matching)
 
@@ -316,7 +318,7 @@ function runSocketAttempt(data, user, token, roomId, holdDeadline, attemptNo) {
       const msgId = oid();
       const at = Date.now();
       const emitted = emit(
-        'message:send',
+        SEND_EVENT,
         {
           roomId: roomId,
           type: 'text',
@@ -406,6 +408,7 @@ function runSocketAttempt(data, user, token, roomId, holdDeadline, attemptNo) {
               mRoundTrip.add(Date.now() - rtPending[mid]);
               delete rtPending[mid];
               upsertCount += 1;
+              cSendSuccess.add(1);
             }
           }
           break;
@@ -519,6 +522,7 @@ function extractRun(data) {
       duration: MODE === 'rate' ? DURATION : null,
       socketBase: SOCKET_BASE,
       namespace: NAMESPACE,
+      sendEvent: SEND_EVENT,
     },
     durationMs: data.state ? Math.round(data.state.testRunDurationMs) : 0,
     checks: {
@@ -541,6 +545,7 @@ function extractRun(data) {
       ws_join_no_ack: counter('ws_join_no_ack'),
       ws_fired: counter('ws_fired'),
       ws_message_sent: counter('ws_message_sent'),
+      ws_send_success: counter('ws_send_success'),
       ws_send_skipped_disconnected: counter('ws_send_skipped_disconnected'),
       ws_send_ack_ok: counter('ws_send_ack_ok'),
       ws_send_ack_fail: counter('ws_send_ack_fail'),
@@ -595,6 +600,7 @@ function consoleSummary(run) {
   L.push('  SEND');
   L.push(`    fired:              ${c.ws_fired}`);
   L.push(`    message_sent:       ${c.ws_message_sent}`);
+  L.push(`    send_success:      ${c.ws_send_success} (${pct(c.ws_send_success, c.ws_message_sent)}%)`);
   L.push(`    skipped_closed:     ${c.ws_send_skipped_disconnected}`);
   L.push(`    send_ack_ok:        ${c.ws_send_ack_ok} (${pct(c.ws_send_ack_ok, c.ws_message_sent)}%)`);
   L.push(`    send_ack_fail:      ${c.ws_send_ack_fail}`);

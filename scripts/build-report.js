@@ -54,6 +54,7 @@ function buildHistory(runs) {
         connectError: c.ws_connect_error || 0,
         connectAttemptFail: c.ws_connect_attempt_fail || 0,
         messageSent: c.ws_message_sent || 0,
+        sendSuccess: c.ws_send_success || 0,
         sendAckOk: c.ws_send_ack_ok || 0,
         sendAckFail: c.ws_send_ack_fail || 0,
         sendAckTimeout: c.ws_send_ack_timeout || 0,
@@ -153,6 +154,7 @@ function renderLatest(r){
   const c=r.counters,t=r.trends,cfg=r.config||{};
   const rt=t.ws_message_round_trip||{},sa=t.ws_send_ack_time||{},ct=t.ws_connect_time||{};
   const ackPct=c.ws_message_sent?(c.ws_send_ack_ok/c.ws_message_sent*100):0;
+  const successPct=c.ws_message_sent?((c.ws_send_success||0)/c.ws_message_sent*100):0;
   const reconnPct=c.ws_reconnect_attempt?(c.ws_reconnect_success/c.ws_reconnect_attempt*100):0;
   const checksPct=(r.checks?r.checks.overallRate:0)*100;
   let h='';
@@ -170,6 +172,7 @@ function renderLatest(r){
   h+=card('Server disconnect', c.ws_server_disconnect||0, (c.ws_server_disconnect||0)===0?'ok':'bad');
   h+='</div><div class="cards" style="margin-top:12px">';
   h+=card('Messages sent', c.ws_message_sent);
+  h+=card('Send success', (c.ws_send_success||0)+' ('+pct(c.ws_send_success||0,c.ws_message_sent)+')', cls(successPct,90,50));
   h+=card('Send skipped closed', c.ws_send_skipped_disconnected||0, (c.ws_send_skipped_disconnected||0)===0?'ok':'warn');
   h+=card('Send ack ok', c.ws_send_ack_ok+' ('+pct(c.ws_send_ack_ok,c.ws_message_sent)+')', cls(ackPct,90,50));
   h+=card('Send ack timeout', c.ws_send_ack_timeout, c.ws_send_ack_timeout===0?'ok':'bad');
@@ -187,12 +190,12 @@ function renderTable(hist){
   if(!hist.length) return '';
   let h='<h2>Lịch sử các lần chạy</h2><table><thead><tr>'+
     '<th>Thời gian</th><th>Mode</th><th>VUs</th><th>Connected</th><th>Conn.err</th><th>Attempt fail</th>'+
-    '<th>Reconn.</th><th>Reconn.%</th><th>Unexp.close</th><th>Sent</th><th>Skip closed</th><th>Ack ok</th><th>Ack timeout</th><th>RT p95</th><th>RT p99</th><th>Checks</th></tr></thead><tbody>';
+    '<th>Reconn.</th><th>Reconn.%</th><th>Unexp.close</th><th>Sent</th><th>Success</th><th>Skip closed</th><th>Ack ok</th><th>Ack timeout</th><th>RT p95</th><th>RT p99</th><th>Checks</th></tr></thead><tbody>';
   for(const r of hist){
     h+='<tr><td>'+new Date(r.timestamp).toLocaleString()+'</td><td>'+r.mode+'</td><td>'+r.userCount+
       '</td><td>'+r.connected+'</td><td>'+r.connectError+'</td><td>'+r.connectAttemptFail+
       '</td><td>'+r.reconnectSuccess+'/'+r.reconnectAttempt+'</td><td>'+(r.reconnectAttempt?r.reconnectPct+'%':'-')+
-      '</td><td>'+r.closeUnexpected+'</td><td>'+r.messageSent+'</td><td>'+r.sendSkippedDisconnected+'</td><td>'+r.sendAckOk+'</td><td>'+r.sendAckTimeout+'</td><td>'+fmtMs(r.roundTripP95)+
+      '</td><td>'+r.closeUnexpected+'</td><td>'+r.messageSent+'</td><td>'+r.sendSuccess+'</td><td>'+r.sendSkippedDisconnected+'</td><td>'+r.sendAckOk+'</td><td>'+r.sendAckTimeout+'</td><td>'+fmtMs(r.roundTripP95)+
       '</td><td>'+fmtMs(r.roundTripP99)+'</td><td>'+r.checksPct+'%</td></tr>';
   }
   return h+'</tbody></table>';

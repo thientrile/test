@@ -16,6 +16,7 @@ import { parsePacket, encodeConnect, encodeEvent, EIO_PONG } from './socketio.js
 
 const NAMESPACE = __ENV.SOCKET_NAMESPACE || '/chat';
 const SOCKET_BASE = __ENV.SOCKET_BASE || 'ws://nginx:8080';
+const SEND_EVENT = __ENV.SEND_EVENT || 'send_ask';
 const WS_URL = `${SOCKET_BASE}/socket.io/?EIO=4&transport=websocket`;
 
 const USERS = new SharedArray('users', () => {
@@ -30,6 +31,13 @@ const ROOM_ID = JSON.parse(open('./room.json')).roomId;
 
 export const options = { vus: 1, iterations: 1 };
 
+function oid() {
+  const ts = Math.floor(Date.now() / 1000).toString(16).padStart(8, '0');
+  let rest = '';
+  for (let i = 0; i < 16; i++) rest += Math.floor(Math.random() * 16).toString(16);
+  return ts + rest;
+}
+
 export default function () {
   const user = USERS[0];
   const token = String(user.accessToken || '').replace(/^"|"$/g, '').trim();
@@ -37,8 +45,8 @@ export default function () {
 
   let connected = false;
   let joinAcked = false;
-  let sendAcked = false;
   let upsertSeen = false;
+  let sentMsgId = '';
   let ackId = 0;
   const pending = {};
 
@@ -66,13 +74,19 @@ export default function () {
             joinAcked = true;
             console.log('[probe] JOIN ack: ' + JSON.stringify(a));
             const t0 = Date.now();
+            sentMsgId = oid();
             emit(
-              'message:send',
-              { roomId: ROOM_ID, type: 'text', content: user.fullname || 'probe', replyTo: '' },
+              SEND_EVENT,
+              {
+                roomId: ROOM_ID,
+                type: 'text',
+                content: user.fullname || 'probe',
+                replyTo: '',
+                id: sentMsgId,
+              },
               function (ack) {
-                sendAcked = true;
                 console.log(`[probe] SEND ack after ${Date.now() - t0}ms: ${JSON.stringify(ack)}`);
-                socket.setTimeout(() => socket.close(), 1500);
+                socket.setTimeout(() => socket.close(), 5000);
               },
             );
           });
@@ -84,8 +98,15 @@ export default function () {
         }
         case 'event':
           if (p.event === 'message:upsert') {
-            upsertSeen = true;
-            console.log('[probe] message:upsert echo: ' + JSON.stringify(p.args[0]));
+            const m = p.args && p.args[0] ? p.args[0] : null;
+            const receivedMsgId = m ? String(m._id || m.id || '') : '';
+            if (receivedMsgId === sentMsgId) {
+              upsertSeen = true;
+              console.log('[probe] message:upsert matched sent id: ' + receivedMsgId);
+              socket.close();
+            } else {
+              console.log('[probe] message:upsert ignored: ' + JSON.stringify(p.args[0]));
+            }
           }
           break;
         case 'connect_error':
@@ -108,7 +129,6 @@ export default function () {
   check(null, {
     '[probe] connected': () => connected,
     '[probe] join acked': () => joinAcked,
-    '[probe] send acked': () => sendAcked,
-    '[probe] upsert echo seen': () => upsertSeen,
+    '[probe] upsert echo matched sent id': () => upsertSeen,
   });
 }

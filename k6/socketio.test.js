@@ -135,14 +135,14 @@ test('encodeEvent: namespaced event without ack id (null)', () => {
 });
 
 test('round-trip: encodeEvent → parsePacket preserves event, ackId, args', () => {
-  const wire = encodeEvent('/chat', 9, 'message:send', [
+  const wire = encodeEvent('/chat', 9, 'send_ask', [
     { roomId: 'r1', type: 'text', content: 'Alice', replyTo: '' },
   ]);
   const p = parsePacket(wire);
   assert.equal(p.type, 'event');
   assert.equal(p.namespace, '/chat');
   assert.equal(p.ackId, 9);
-  assert.equal(p.event, 'message:send');
+  assert.equal(p.event, 'send_ask');
   assert.deepEqual(p.args, [
     { roomId: 'r1', type: 'text', content: 'Alice', replyTo: '' },
   ]);

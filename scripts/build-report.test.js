@@ -30,6 +30,7 @@ function fakeRun(over = {}) {
       ws_reconnect_exhausted: 2,
       ws_send_skipped_disconnected: 6,
       ws_message_sent: 940,
+      ws_send_success: 910,
       ws_send_ack_ok: 900,
       ws_send_ack_fail: 10,
       ws_send_ack_timeout: 30,
@@ -53,6 +54,7 @@ test('buildHistory extracts compact per-run summary fields', () => {
   assert.equal(h.mode, 'burst');
   assert.equal(h.userCount, 1000);
   assert.equal(h.roundTripP95, 1700);
+  assert.equal(h.sendSuccess, 910);
   assert.equal(h.sendAckOk, 900);
   assert.equal(h.connectError, 50);
   assert.equal(h.connectAttemptFail, 120);

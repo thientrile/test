@@ -22,7 +22,7 @@ Artillery). Two profiles:
 
 bootstrap (1×)   →  register N users, cache creds in mongo test.loadtest_users
 prepare (mỗi run) →  refresh tokens, create/reuse room, write k6/users.csv + k6/room.json
-k6 (loadtest.js) →  N VU: connect → 40/chat,{token} → join → (fireAt) → message:send
+k6 (loadtest.js) →  N VU: connect → 40/chat,{token} → join → (fireAt) → send_ask
 build-report     →  k6/reports/run-*.json → self-contained k6/reports/index.html
 ```
 
@@ -91,6 +91,7 @@ HTML tĩnh bằng browser, **không cần FE/server**).
 | `PRE_VUS` / `MAX_VUS` | 200 / 600 | VU pool cho `constant-arrival-rate` |
 | `SOCKET_BASE` | `ws://nginx:8080` | WS entry |
 | `SOCKET_NAMESPACE` | `/chat` | Socket.IO namespace |
+| `SEND_EVENT` | `send_ask` | Event gửi message; nhận `message:upsert` và match cùng id thì tính gửi thành công |
 
 ---
 
@@ -126,10 +127,11 @@ test/
 ## Metrics (k6 native + checks)
 
 `Trend`: `ws_connect_time`, `ws_join_time`, `ws_send_ack_time`,
-`ws_message_round_trip` (round-trip = `message:send` → own `message:upsert`
-echo). `Counter`: `ws_connected`, `ws_connect_error`, `ws_exception`,
+`ws_message_round_trip` (round-trip = `send_ask` → own `message:upsert` echo
+cùng message id). `Counter`: `ws_connected`, `ws_connect_error`, `ws_exception`,
 `ws_join_ack_ok|fail|no_ack`, `ws_fired`, `ws_message_sent`,
-`ws_send_ack_ok|fail|timeout`, `ws_upsert_timeout`, `ws_disconnected`.
+`ws_send_success`, `ws_send_ack_ok|fail|timeout`, `ws_upsert_timeout`,
+`ws_disconnected`.
 `check()` + `thresholds` (`checks: ['rate>0.90']`) gate the run pass/fail.
 
 Each run → `k6/reports/run-<RUN_ID>.json`; `build-report.js` aggregates all runs
