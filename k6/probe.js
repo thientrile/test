@@ -16,7 +16,8 @@ import { parsePacket, encodeConnect, encodeEvent, EIO_PONG } from './socketio.js
 
 const NAMESPACE = __ENV.SOCKET_NAMESPACE || '/chat';
 const SOCKET_BASE = __ENV.SOCKET_BASE || 'ws://nginx:8080';
-const SEND_EVENT = __ENV.SEND_EVENT || 'send_ask';
+// Real FE chat event (socketEvent.MSGSEND) — NOT 'send_ask' (not handled by BE).
+const SEND_EVENT = __ENV.SEND_EVENT || 'message:send';
 const WS_URL = `${SOCKET_BASE}/socket.io/?EIO=4&transport=websocket`;
 
 const USERS = new SharedArray('users', () => {

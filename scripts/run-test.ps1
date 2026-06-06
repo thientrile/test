@@ -4,27 +4,30 @@
 #   prepare (room + users.csv + room.json) → k6 run → build report → open HTML
 #
 # Modes (set $env:MODE):
-#   burst (default) — USER_COUNT VUs send a message at the SAME instant
-#                     (đánh giá sức chịu tải khi 1000 người gửi cùng lúc).
-#   rate            — constant-arrival-rate RATE req/s for DURATION
-#                     (đo throughput / tìm cực hệ thống, vd 100 req/s).
+#   rate (default)  — constant-arrival-rate RATE msg/s for DURATION. Đo kết quả
+#                     thực tế: % tin gửi thành công + độ trễ giao tin ở tải thật.
+#   burst           — USER_COUNT VUs send a message at the SAME instant
+#                     (đánh giá sức chịu tải đỉnh khi N người gửi cùng lúc).
+#
+# "Gửi thành công" = nhận message:upsert echo ≤ DELIVER_WINDOW_MS (giống FE).
 #
 # Examples:
-#   .\scripts\run-test.ps1                                  # burst, USER_COUNT từ .env
-#   $env:MODE='rate'; $env:RATE=100; $env:DURATION='10s'; .\scripts\run-test.ps1
-#   $env:USER_COUNT=50; .\scripts\run-test.ps1             # burst nhỏ để smoke
+#   .\scripts\run-test.ps1                                  # rate, từ .env
+#   $env:MODE='rate'; $env:RATE=50; $env:DURATION='60s'; .\scripts\run-test.ps1
+#   $env:MODE='burst'; $env:USER_COUNT=500; .\scripts\run-test.ps1  # burst đỉnh
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
-$Mode    = if ($env:MODE)       { $env:MODE }       else { 'burst' }
+$Mode    = if ($env:MODE)       { $env:MODE }       else { 'rate' }
 $RunId   = Get-Date -Format 'yyyyMMdd-HHmmss'
 $report  = Join-Path $root 'k6\reports\index.html'
 
-# Per-run env forwarded into the k6 container (only those that are set).
+# Per-run env forwarded into the k6 container (only those that are set on the
+# host; otherwise the value in .env applies via env_file).
 $k6Env = @('-e', "MODE=$Mode", '-e', "RUN_ID=$RunId")
-foreach ($v in 'USER_COUNT','RAMP_DURATION','CONNECT_MARGIN_MS','THINK_AFTER_GO','MSGS_PER_VU','MSG_INTERVAL_MS','RATE','DURATION','PRE_VUS','MAX_VUS') {
+foreach ($v in 'USER_COUNT','RAMP_DURATION','CONNECT_MARGIN_MS','THINK_AFTER_GO','MSGS_PER_VU','MSG_INTERVAL_MS','RATE','DURATION','PRE_VUS','MAX_VUS','SEND_EVENT','DELIVER_WINDOW_MS','REQUEST_ACK') {
   $val = [Environment]::GetEnvironmentVariable($v)
   if ($val) { $k6Env += @('-e', "$v=$val") }
 }

@@ -75,7 +75,7 @@ services:
     working_dir: /scripts
     env_file: .env
     environment:
-      MODE: ${MODE:-burst}
+      MODE: ${MODE:-rate}
     volumes:
       - ./k6:/scripts
     command: ["run", "/scripts/loadtest.js"]

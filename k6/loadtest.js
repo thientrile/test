@@ -1,15 +1,32 @@
 // appchat load test — raw k6/ws speaking Engine.IO v4 + Socket.IO (/chat).
 //
+// This script mirrors the REAL frontend chat flow (app-chat-fe):
+//   1. open socket, Engine.IO handshake → CONNECT /chat with the auth token
+//   2. emit `join` { roomId }
+//   3. emit `message:send` { roomId, type:'text', content, replyTo:'', id }
+//        - `id` is a 24-hex ObjectId the client generates (FE:
+//          `new ObjectId().toHexString()` in useMessageStore.sendMessage)
+//        - the FE does NOT rely on the socket.io ack. It shows the message as
+//          SENDING, then calls autoFailIfUnsent(roomId, id, 15000): if a
+//          `message:upsert` echo carrying the same `id` arrives within 15s the
+//          message flips to SENT (success); otherwise it is marked FAILED.
+//
+// THEREFORE the load test's definition of "tin nhắn gửi thành công" is
+// FE-accurate: a message is DELIVERED iff its `message:upsert` echo is received
+// within DELIVER_WINDOW_MS (default 15000ms). The gateway ack is captured only
+// as a secondary diagnostic (REQUEST_ACK) — it does not decide success.
+//
 // Two load profiles, selected via __ENV.MODE:
 //
-//   MODE=burst  (default) — USER_COUNT VUs each open a socket, join the room,
-//     then ALL send their message at the SAME instant (a single `fireAt`
-//     timestamp shared from setup()). Answers: "what happens when 1000 people
-//     send at once?" (sức chịu tải đỉnh).
+//   MODE=rate  (default) — constant-arrival-rate at RATE messages/sec for
+//     DURATION. Each iteration = connect → join → send 1 message → wait up to
+//     DELIVER_WINDOW_MS for the upsert → close. Answers: "ở tải thật N msg/s,
+//     bao nhiêu % tin được gửi thành công và độ trễ giao tin là bao nhiêu?"
+//     (throughput bền vững / kết quả thực tế).
 //
-//   MODE=rate — constant-arrival-rate at RATE requests/sec for DURATION. Each
-//     iteration = connect → join → send → close. Answers: "can the system
-//     sustain 100 msg/s, and where does it break?" (cực hệ thống / throughput).
+//   MODE=burst — USER_COUNT VUs each open a socket, join, then ALL send at the
+//     SAME instant (a single `fireAt` shared from setup()). Answers: "what
+//     happens when N people send at once?" (sức chịu tải đỉnh).
 //
 // Per-run metrics are written by handleSummary() to reports/run-<RUN_ID>.json;
 // scripts/build-report.js turns those into the HTML report.
@@ -30,7 +47,7 @@ import {
 // ---------------------------------------------------------------------------
 // Config (from __ENV, with the same defaults as the old .env)
 // ---------------------------------------------------------------------------
-const MODE = (__ENV.MODE || 'burst').toLowerCase();
+const MODE = (__ENV.MODE || 'rate').toLowerCase();
 const USER_COUNT = parseInt(__ENV.USER_COUNT, 10) || 1000;
 const RAMP_S = parseInt(__ENV.RAMP_DURATION, 10) || 30;
 const CONNECT_MARGIN_MS = parseInt(__ENV.CONNECT_MARGIN_MS, 10) || 5000;
@@ -54,7 +71,18 @@ const MAX_VUS = parseInt(__ENV.MAX_VUS, 10) || 600;
 
 const SOCKET_BASE = __ENV.SOCKET_BASE || 'ws://nginx:8080';
 const NAMESPACE = __ENV.SOCKET_NAMESPACE || '/chat';
-const SEND_EVENT = __ENV.SEND_EVENT || 'send_ask';
+// The REAL chat-message event the FE emits (socketEvent.MSGSEND). The old
+// default `send_ask` is NOT handled by the BE socket gateway at all.
+const SEND_EVENT = __ENV.SEND_EVENT || 'message:send';
+// FE success deadline: useMessageStore.autoFailIfUnsent(roomId, id, 15000).
+// A message counts as DELIVERED only if its message:upsert echo arrives within
+// this window — exactly how the real client decides SENT vs FAILED.
+const DELIVER_WINDOW_MS = parseInt(__ENV.DELIVER_WINDOW_MS, 10) || 15000;
+// The FE emits message:send WITHOUT an ack callback. We keep the ability to
+// request the gateway ack purely as a server-side latency diagnostic; it does
+// NOT change the message path and does NOT decide success. Default off to match
+// the real client exactly; set REQUEST_ACK=1 to also measure gateway ack time.
+const REQUEST_ACK = (__ENV.REQUEST_ACK || '0') === '1';
 const WS_URL = `${SOCKET_BASE}/socket.io/?EIO=4&transport=websocket`;
 
 const RUN_ID = __ENV.RUN_ID || `${Date.now()}`;
@@ -118,7 +146,10 @@ function oid() {
 const mConnectTime = new Trend('ws_connect_time', true);
 const mJoinTime = new Trend('ws_join_time', true);
 const mSendAckTime = new Trend('ws_send_ack_time', true);
+// ws_message_round_trip = send → own message:upsert echo (the FE "delivered"
+// latency, i.e. the real time-to-SENT a user perceives).
 const mRoundTrip = new Trend('ws_message_round_trip', true);
+const mDeliverTime = new Trend('ws_msg_deliver_time', true);
 
 const cConnected = new Counter('ws_connected');
 const cConnectError = new Counter('ws_connect_error');
@@ -129,6 +160,13 @@ const cJoinAckFail = new Counter('ws_join_ack_fail');
 const cJoinNoAck = new Counter('ws_join_no_ack');
 const cFired = new Counter('ws_fired');
 const cMsgSent = new Counter('ws_message_sent');
+// FE-accurate success: a message is DELIVERED iff its message:upsert echo
+// arrives within DELIVER_WINDOW_MS, else FAILED (mirrors autoFailIfUnsent).
+const cMsgDelivered = new Counter('ws_msg_delivered');
+const cMsgFailed = new Counter('ws_msg_failed');
+// Legacy aliases kept so the existing HTML report keeps rendering. Incremented
+// in lockstep with delivered/failed above. ws_send_ask_ok == delivered,
+// ws_upsert_timeout == failed.
 const cSendAskOk = new Counter('ws_send_ask_ok');
 const cSendSkippedDisconnected = new Counter('ws_send_skipped_disconnected');
 const cSendAckOk = new Counter('ws_send_ack_ok');
@@ -143,6 +181,22 @@ const cReconnectAttempt = new Counter('ws_reconnect_attempt');
 const cReconnectSuccess = new Counter('ws_reconnect_success');
 const cReconnectExhausted = new Counter('ws_reconnect_exhausted');
 
+// Record one delivered message (upsert echo received within DELIVER_WINDOW_MS).
+function markDelivered(latencyMs) {
+  cMsgDelivered.add(1);
+  cSendAskOk.add(1); // legacy alias for the HTML report
+  mDeliverTime.add(latencyMs);
+  mRoundTrip.add(latencyMs);
+}
+
+// Record one failed message (no upsert echo within DELIVER_WINDOW_MS, or the
+// socket closed before the echo arrived — exactly the FE "FAILED" condition).
+function markFailed(n) {
+  const k = n || 1;
+  cMsgFailed.add(k);
+  cUpsertTimeout.add(k); // legacy alias for the HTML report
+}
+
 // ---------------------------------------------------------------------------
 // Scenario / options — chosen by MODE
 // ---------------------------------------------------------------------------
@@ -151,7 +205,7 @@ const burstMaxDuration =
   Math.ceil(CONNECT_MARGIN_MS / 1000) +
   Math.ceil(FLOOD_MS / 1000) +
   Math.ceil(HOLD_MS / 1000) +
-  Math.ceil(SEND_TIMEOUT_MS / 1000) +
+  Math.ceil(DELIVER_WINDOW_MS / 1000) + // wait out the last message's 15s deadline
   Math.ceil(THINK_MS / 1000) +
   30;
 
@@ -293,11 +347,18 @@ function runSocketAttempt(data, user, token, roomId, holdDeadline, attemptNo) {
       if (closing) return;
       closing = true;
       closeExpected = expected !== false && !serverDisconnected;
-      // Account for whatever never came back before we close (over the whole
-      // flood, not per-message): sent-but-unacked, and sent-without-echo.
-      if (fireStarted) {
+      // Any message still pending its upsert at close never delivered (the
+      // socket dropped before the echo / before its 15s deadline fired) → FAILED,
+      // matching the FE marking the optimistic message FAILED. Delivered and
+      // already-timed-out messages were removed from rtPending, so no double count.
+      const stillPending = Object.keys(rtPending);
+      if (stillPending.length) {
+        markFailed(stillPending.length);
+        for (const k of stillPending) delete rtPending[k];
+      }
+      // Gateway-ack diagnostic (only meaningful when REQUEST_ACK=1).
+      if (fireStarted && REQUEST_ACK) {
         cSendAckTimeout.add(Math.max(0, sent - ackedCount));
-        cUpsertTimeout.add(Math.max(0, sent - upsertCount));
       }
       socket.close();
     }
@@ -309,30 +370,38 @@ function runSocketAttempt(data, user, token, roomId, holdDeadline, attemptNo) {
         return;
       }
       if (sent >= MSGS_PER_VU) {
-        // All queued — wait a grace window for outstanding acks/echoes, close.
+        // All queued — hold the socket open long enough for the LAST message's
+        // delivery deadline (15s) to resolve, then close. This is what lets us
+        // observe upsert-within-15s exactly like the FE does.
         later(function () {
           doClose(true);
-        }, SEND_TIMEOUT_MS + THINK_MS + HOLD_MS);
+        }, DELIVER_WINDOW_MS + THINK_MS + HOLD_MS + 1000);
         return;
       }
       const msgId = oid();
       const at = Date.now();
+      // Match the real FE payload (useMessageStore.sendMessage). The FE emits
+      // WITHOUT an ack callback; we attach one only when REQUEST_ACK=1 for
+      // server-side latency diagnostics — it does not affect success.
+      const onAck = REQUEST_ACK
+        ? function (ackArgs) {
+            ackedCount += 1;
+            const ok = ackArgs && ackArgs[0] ? ackArgs[0].ok !== false : true;
+            if (ok) cSendAckOk.add(1);
+            else cSendAckFail.add(1);
+            mSendAckTime.add(Date.now() - at);
+          }
+        : null;
       const emitted = emit(
         SEND_EVENT,
         {
           roomId: roomId,
           type: 'text',
-          content: user.fullname || 'k6',
+          content: 'loadtest message',
           replyTo: '',
           id: msgId,
         },
-        function (ackArgs) {
-          ackedCount += 1;
-          const ok = ackArgs && ackArgs[0] ? ackArgs[0].ok !== false : true;
-          if (ok) cSendAckOk.add(1);
-          else cSendAckFail.add(1);
-          mSendAckTime.add(Date.now() - at);
-        },
+        onAck,
       );
       if (!emitted) {
         cSendSkippedDisconnected.add(1);
@@ -341,6 +410,15 @@ function runSocketAttempt(data, user, token, roomId, holdDeadline, attemptNo) {
       sent += 1;
       rtPending[msgId] = at;
       cMsgSent.add(1);
+      // FE-accurate per-message deadline: if no message:upsert echo for this id
+      // within DELIVER_WINDOW_MS, mark it FAILED (autoFailIfUnsent). If the
+      // echo arrives first it deletes rtPending[msgId], so this is a no-op.
+      later(function () {
+        if (rtPending[msgId] != null) {
+          delete rtPending[msgId];
+          markFailed(1);
+        }
+      }, DELIVER_WINDOW_MS);
       later(sendOne, MSG_INTERVAL_MS);
     }
 
@@ -400,15 +478,16 @@ function runSocketAttempt(data, user, token, roomId, holdDeadline, attemptNo) {
         }
         case 'event':
           if (p.event === 'message:upsert') {
-            // Broadcast to every room member — only match echoes of OUR sends
-            // (by the client id we generated) to measure true round-trip.
+            // The BE broadcasts message:upsert to every room member. We only
+            // match echoes of OUR OWN sends (by the client id we generated) and
+            // only if they arrive before the 15s deadline already failed them —
+            // exactly the condition under which the FE flips SENDING → SENT.
             const m = p.args && p.args[0] ? p.args[0] : null;
             const mid = messageIdOf(m);
             if (mid && rtPending[mid] != null) {
-              mRoundTrip.add(Date.now() - rtPending[mid]);
+              markDelivered(Date.now() - rtPending[mid]);
               delete rtPending[mid];
               upsertCount += 1;
-              cSendAskOk.add(1);
             }
           }
           break;
@@ -450,7 +529,7 @@ function runSocketAttempt(data, user, token, roomId, holdDeadline, attemptNo) {
       Math.max(0, data.fireAt - Date.now()) +
         FLOOD_MS +
         HOLD_MS +
-        SEND_TIMEOUT_MS +
+        DELIVER_WINDOW_MS +
         THINK_MS +
         10000,
     );
@@ -509,6 +588,7 @@ function extractRun(data) {
     return {
       count,
       avg: count ? round(v.avg) : null,
+      min: count ? round(v.min) : null,
       med: count ? round(v.med) : null,
       p95: count ? round(v['p(95)']) : null,
       p99: count ? round(v['p(99)']) : null,
@@ -528,6 +608,8 @@ function extractRun(data) {
       userCount: USER_COUNT,
       msgsPerVu: MSGS_PER_VU,
       msgIntervalMs: MSG_INTERVAL_MS,
+      deliverWindowMs: DELIVER_WINDOW_MS,
+      requestAck: REQUEST_ACK,
       holdSeconds: HOLD_MS / 1000,
       reconnect: RECONNECT,
       maxReconnects: MAX_RECONNECTS,
@@ -551,6 +633,7 @@ function extractRun(data) {
       ws_join_time: trend('ws_join_time'),
       ws_send_ack_time: trend('ws_send_ack_time'),
       ws_message_round_trip: trend('ws_message_round_trip'),
+      ws_msg_deliver_time: trend('ws_msg_deliver_time'),
     },
     counters: {
       ws_connected: counter('ws_connected'),
@@ -562,6 +645,8 @@ function extractRun(data) {
       ws_join_no_ack: counter('ws_join_no_ack'),
       ws_fired: counter('ws_fired'),
       ws_message_sent: counter('ws_message_sent'),
+      ws_msg_delivered: counter('ws_msg_delivered'),
+      ws_msg_failed: counter('ws_msg_failed'),
       ws_send_ask_ok: counter('ws_send_ask_ok'),
       ws_send_skipped_disconnected: counter('ws_send_skipped_disconnected'),
       ws_send_ack_ok: counter('ws_send_ack_ok'),
@@ -595,50 +680,58 @@ function round(n) {
 function consoleSummary(run) {
   const c = run.counters;
   const rt = run.trends.ws_message_round_trip;
+  const dl = run.trends.ws_msg_deliver_time || rt;
   const sa = run.trends.ws_send_ack_time;
   const cfg = run.config || {};
   const pct = (n, d) => (d ? ((n / d) * 100).toFixed(1) : '0.0');
   const ms = (n) => (n == null ? 'n/a' : String(n));
+  const delivered = c.ws_msg_delivered != null ? c.ws_msg_delivered : c.ws_send_ask_ok;
+  const failed = c.ws_msg_failed != null ? c.ws_msg_failed : c.ws_upsert_timeout;
   const L = [];
   L.push('');
-  L.push('================ k6 LOADTEST SUMMARY ================');
+  L.push('============== appchat LOADTEST — KẾT QUẢ THỰC TẾ ==============');
   L.push(`  mode=${run.mode}  run=${run.runId}  dur=${(run.durationMs / 1000).toFixed(1)}s`);
   L.push(
-    `  target_vus=${cfg.userCount || 0}  hold=${cfg.holdSeconds || 0}s  reconnect=${cfg.reconnect ? 'on' : 'off'} max=${cfg.maxReconnects || 0}`,
+    `  event=${cfg.sendEvent}  deliver_window=${(cfg.deliverWindowMs || 0) / 1000}s  ack_diagnostic=${cfg.requestAck ? 'on' : 'off'}`,
   );
-  L.push('  CONNECT');
-  L.push(`    connected attempts: ${c.ws_connected}`);
-  L.push(`    final errors:       ${c.ws_connect_error} (${pct(c.ws_connect_error, cfg.userCount || 0)}% of target VUs)`);
-  L.push(`    attempt failures:   ${c.ws_connect_attempt_fail}`);
-  L.push(`    exceptions:         ${c.ws_exception}`);
-  L.push('  JOIN');
-  L.push(`    join_ack_ok:        ${c.ws_join_ack_ok}`);
-  L.push(`    join_ack_fail:      ${c.ws_join_ack_fail}`);
-  L.push(`    join_no_ack:        ${c.ws_join_no_ack}`);
-  L.push('  SEND');
-  L.push(`    fired:              ${c.ws_fired}`);
-  L.push(`    message_sent:       ${c.ws_message_sent}`);
-  L.push(`    send_ask_ok:        ${c.ws_send_ask_ok} (${pct(c.ws_send_ask_ok, c.ws_message_sent)}%)`);
-  L.push(`    skipped_closed:     ${c.ws_send_skipped_disconnected}`);
-  L.push(`    send_ack_ok:        ${c.ws_send_ack_ok} (${pct(c.ws_send_ack_ok, c.ws_message_sent)}%)`);
-  L.push(`    send_ack_fail:      ${c.ws_send_ack_fail}`);
-  L.push(`    send_ack_timeout:   ${c.ws_send_ack_timeout}`);
-  L.push(`    upsert_timeout:     ${c.ws_upsert_timeout}`);
-  L.push('  CLOSE');
-  L.push(`    disconnected:       ${c.ws_disconnected}`);
-  L.push(`    expected_close:     ${c.ws_close_expected}`);
-  L.push(`    unexpected_close:   ${c.ws_close_unexpected}`);
-  L.push(`    server_disconnect:  ${c.ws_server_disconnect}`);
-  L.push('  RECONNECT');
-  L.push(`    attempts:           ${c.ws_reconnect_attempt}`);
-  L.push(`    success:            ${c.ws_reconnect_success} (${pct(c.ws_reconnect_success, c.ws_reconnect_attempt)}%)`);
-  L.push(`    exhausted:          ${c.ws_reconnect_exhausted}`);
-  L.push('  LATENCY (ms)');
-  L.push(`    send_ack:          count=${sa.count || 0}  p95=${ms(sa.p95)}  p99=${ms(sa.p99)}  max=${ms(sa.max)}`);
-  L.push(`    round_trip:        count=${rt.count || 0}  p95=${ms(rt.p95)}  p99=${ms(rt.p99)}  max=${ms(rt.max)}`);
+  if (run.mode === 'rate') {
+    L.push(`  rate=${cfg.rate || '?'} msg/s  duration=${cfg.duration || '?'}`);
+  } else {
+    L.push(`  target_vus=${cfg.userCount || 0}  msgs/vu=${cfg.msgsPerVu}`);
+  }
+  L.push('');
+  L.push('  ── SỐ KẾT NỐI (WebSocket) ──');
+  L.push(`    connected (socket OK): ${c.ws_connected}`);
+  L.push(`    join room OK:          ${c.ws_join_ack_ok}`);
+  L.push(`    connect errors:        ${c.ws_connect_error}`);
+  L.push(`    attempt failures:      ${c.ws_connect_attempt_fail}`);
+  L.push(`    exceptions:            ${c.ws_exception}`);
+  L.push('');
+  L.push('  ── SỐ TIN NHẮN GỬI THÀNH CÔNG (FE: upsert ≤ window) ──');
+  L.push(`    đã gửi (attempted):    ${c.ws_message_sent}`);
+  L.push(`    ✅ thành công (SENT):  ${delivered} (${pct(delivered, c.ws_message_sent)}%)`);
+  L.push(`    ❌ thất bại (FAILED):  ${failed} (${pct(failed, c.ws_message_sent)}%)`);
+  L.push(`    skipped (socket đóng): ${c.ws_send_skipped_disconnected}`);
+  if (cfg.requestAck) {
+    L.push(`    [chẩn đoán] ack ok:    ${c.ws_send_ack_ok} / fail ${c.ws_send_ack_fail}`);
+  }
+  L.push('');
+  L.push('  ── ĐỘ TRỄ ĐẦY ĐỦ (ms) — avg / min / med / p95 / p99 / max ──');
+  const ct = run.trends.ws_connect_time;
+  const jt = run.trends.ws_join_time;
+  const row = (label, t) =>
+    `    ${label.padEnd(13)} n=${String(t.count || 0).padStart(6)}  avg=${ms(t.avg)}  min=${ms(t.min)}  med=${ms(t.med)}  p95=${ms(t.p95)}  p99=${ms(t.p99)}  max=${ms(t.max)}`;
+  L.push(row('connect', ct));
+  L.push(row('join', jt));
+  L.push(row('delivered', dl)); // send → message:upsert echo (UX latency thật)
+  if (cfg.requestAck) L.push(row('gateway_ack', sa));
+  L.push('');
+  L.push('  ── ỔN ĐỊNH KẾT NỐI ──');
+  L.push(`    unexpected close:  ${c.ws_close_unexpected}   server disconnect: ${c.ws_server_disconnect}`);
+  L.push(`    reconnect:         ${c.ws_reconnect_success}/${c.ws_reconnect_attempt} ok   exhausted ${c.ws_reconnect_exhausted}`);
   L.push(`  checks pass: ${(run.checks.overallRate * 100).toFixed(1)}%`);
   L.push(`  → reports/run-${run.runId}.json`);
-  L.push('=====================================================');
+  L.push('===============================================================');
   L.push('');
   return L.join('\n');
 }

@@ -40,10 +40,15 @@ function buildHistory(runs) {
       const c = r.counters || {};
       const t = r.trends || {};
       const rt = normalizeTrend(t.ws_message_round_trip || {});
+      const dl = normalizeTrend(t.ws_msg_deliver_time || t.ws_message_round_trip || {});
       const sa = normalizeTrend(t.ws_send_ack_time || {});
       const reconnectAttempt = c.ws_reconnect_attempt || 0;
       const reconnectSuccess = c.ws_reconnect_success || 0;
       const sendAskOk = sendAskOkOf(c);
+      const msgDelivered = hasOwn(c, 'ws_msg_delivered') ? c.ws_msg_delivered || 0 : sendAskOk;
+      const msgFailed = hasOwn(c, 'ws_msg_failed')
+        ? c.ws_msg_failed || 0
+        : c.ws_upsert_timeout || 0;
       return {
         runId: r.runId,
         timestamp: r.timestamp,
@@ -56,6 +61,10 @@ function buildHistory(runs) {
         connectAttemptFail: c.ws_connect_attempt_fail || 0,
         messageSent: c.ws_message_sent || 0,
         sendAskOk,
+        msgDelivered,
+        msgFailed,
+        deliverP95: dl.p95 ?? null,
+        deliverP99: dl.p99 ?? null,
         sendAckOk: c.ws_send_ack_ok || 0,
         sendAckFail: c.ws_send_ack_fail || 0,
         sendAckTimeout: c.ws_send_ack_timeout || 0,
@@ -93,9 +102,11 @@ function sendAskOkOf(c) {
 function normalizeTrend(t) {
   if (!t || typeof t !== 'object') return {};
   const out = { ...t };
-  const keys = ['avg', 'med', 'p95', 'p99', 'max'];
+  const keys = ['avg', 'min', 'med', 'p95', 'p99', 'max'];
   const hasCount = Object.prototype.hasOwnProperty.call(out, 'count');
-  const allZero = keys.every((k) => out[k] === 0);
+  // Treat a missing stat (undefined) the same as 0 so older run files that
+  // predate the `min` field still normalize to "no samples".
+  const allZero = keys.every((k) => out[k] == null || out[k] === 0);
   if ((hasCount && out.count === 0) || (!hasCount && allZero)) {
     out.count = 0;
     for (const k of keys) out[k] = null;
@@ -115,8 +126,13 @@ function normalizeRun(r) {
     },
     trends: {
       ...trends,
+      ws_connect_time: normalizeTrend(trends.ws_connect_time || {}),
+      ws_join_time: normalizeTrend(trends.ws_join_time || {}),
       ws_send_ack_time: normalizeTrend(trends.ws_send_ack_time || {}),
       ws_message_round_trip: normalizeTrend(trends.ws_message_round_trip || {}),
+      ws_msg_deliver_time: normalizeTrend(
+        trends.ws_msg_deliver_time || trends.ws_message_round_trip || {},
+      ),
     },
   };
 }
@@ -205,9 +221,11 @@ function renderLatest(r){
   if(!r) return '<div class="empty">Chưa có dữ liệu. Chạy một test rồi mở lại.</div>';
   const c=r.counters,t=r.trends,cfg=r.config||{};
   const rt=t.ws_message_round_trip||{},sa=t.ws_send_ack_time||{},ct=t.ws_connect_time||{};
+  const dl=t.ws_msg_deliver_time||rt, jt=t.ws_join_time||{};
   const ackPct=c.ws_message_sent?(c.ws_send_ack_ok/c.ws_message_sent*100):0;
-  const sendAskOk=sendAskOkOf(c);
-  const sendAskPct=c.ws_message_sent?(sendAskOk/c.ws_message_sent*100):0;
+  const delivered=hasOwn(c,'ws_msg_delivered')?(c.ws_msg_delivered||0):sendAskOkOf(c);
+  const failed=hasOwn(c,'ws_msg_failed')?(c.ws_msg_failed||0):(c.ws_upsert_timeout||0);
+  const deliveredPct=c.ws_message_sent?(delivered/c.ws_message_sent*100):0;
   const reconnPct=c.ws_reconnect_attempt?(c.ws_reconnect_success/c.ws_reconnect_attempt*100):0;
   const checksPct=(r.checks?r.checks.overallRate:0)*100;
   let h='';
@@ -224,18 +242,22 @@ function renderLatest(r){
   h+=card('Unexpected close', c.ws_close_unexpected||0, (c.ws_close_unexpected||0)===0?'ok':'bad');
   h+=card('Server disconnect', c.ws_server_disconnect||0, (c.ws_server_disconnect||0)===0?'ok':'bad');
   h+='</div><div class="cards" style="margin-top:12px">';
-  h+=card('Messages sent', c.ws_message_sent);
-  h+=card('Send ask ok', sendAskOk+' ('+pct(sendAskOk,c.ws_message_sent)+')', cls(sendAskPct,90,50));
-  h+=card('Send skipped closed', c.ws_send_skipped_disconnected||0, (c.ws_send_skipped_disconnected||0)===0?'ok':'warn');
-  h+=card('Send ack ok', c.ws_send_ack_ok+' ('+pct(c.ws_send_ack_ok,c.ws_message_sent)+')', cls(ackPct,90,50));
-  h+=card('Send ack timeout', c.ws_send_ack_timeout, c.ws_send_ack_timeout===0?'ok':'bad');
+  h+=card('Tin đã gửi', c.ws_message_sent);
+  h+=card('✅ Gửi thành công', delivered+' ('+pct(delivered,c.ws_message_sent)+')', cls(deliveredPct,90,50));
+  h+=card('❌ Thất bại (>window)', failed+' ('+pct(failed,c.ws_message_sent)+')', failed===0?'ok':(deliveredPct>=50?'warn':'bad'));
+  h+=card('Skipped (socket đóng)', c.ws_send_skipped_disconnected||0, (c.ws_send_skipped_disconnected||0)===0?'ok':'warn');
+  if(cfg.requestAck) h+=card('Gateway ack ok', c.ws_send_ack_ok+' ('+pct(c.ws_send_ack_ok,c.ws_message_sent)+')', cls(ackPct,90,50));
   h+=card('Exceptions', c.ws_exception, c.ws_exception===0?'ok':'bad');
-  h+='</div><div class="cards" style="margin-top:12px">';
-  h+=card('Connect p95', fmtMs(ct.p95));
-  h+=card('Join p95', fmtMs((t.ws_join_time||{}).p95));
-  h+=card('Send-ack p95 / p99', fmtMs(sa.p95)+' / '+fmtMs(sa.p99));
-  h+=card('Round-trip p95 / p99', fmtMs(rt.p95)+' / '+fmtMs(rt.p99));
   h+='</div>';
+  // Full latency table — avg / min / med / p95 / p99 / max for every stage.
+  h+='<h3 style="margin:18px 0 6px">Độ trễ đầy đủ (ms)</h3>';
+  h+='<table><thead><tr><th>Chặng</th><th>n</th><th>avg</th><th>min</th><th>med</th><th>p95</th><th>p99</th><th>max</th></tr></thead><tbody>';
+  const latRow=(name,tr)=>'<tr><td>'+name+'</td><td>'+(tr.count||0)+'</td><td>'+fmtMs(tr.avg)+'</td><td>'+fmtMs(tr.min)+'</td><td>'+fmtMs(tr.med)+'</td><td>'+fmtMs(tr.p95)+'</td><td>'+fmtMs(tr.p99)+'</td><td>'+fmtMs(tr.max)+'</td></tr>';
+  h+=latRow('Connect', ct);
+  h+=latRow('Join', jt);
+  h+=latRow('Giao tin (upsert echo)', dl);
+  if(cfg.requestAck) h+=latRow('Gateway ack', sa);
+  h+='</tbody></table>';
   return h;
 }
 
@@ -243,13 +265,16 @@ function renderTable(hist){
   if(!hist.length) return '';
   let h='<h2>Lịch sử các lần chạy</h2><table><thead><tr>'+
     '<th>Thời gian</th><th>Mode</th><th>VUs</th><th>Connected</th><th>Conn.err</th><th>Attempt fail</th>'+
-    '<th>Reconn.</th><th>Reconn.%</th><th>Unexp.close</th><th>Sent</th><th>Ask ok</th><th>Skip closed</th><th>Ack ok</th><th>Ack timeout</th><th>RT p95</th><th>RT p99</th><th>Checks</th></tr></thead><tbody>';
+    '<th>Reconn.</th><th>Unexp.close</th><th>Tin gửi</th><th>✅ Thành công</th><th>❌ Thất bại</th><th>Skip</th><th>Giao tin p95</th><th>Giao tin p99</th><th>Checks</th></tr></thead><tbody>';
   for(const r of hist){
+    const dlv=r.msgDelivered!=null?r.msgDelivered:r.sendAskOk;
+    const fail=r.msgFailed!=null?r.msgFailed:'-';
+    const dPct=r.messageSent?((dlv/r.messageSent)*100).toFixed(1)+'%':'-';
     h+='<tr><td>'+new Date(r.timestamp).toLocaleString()+'</td><td>'+r.mode+'</td><td>'+r.userCount+
       '</td><td>'+r.connected+'</td><td>'+r.connectError+'</td><td>'+r.connectAttemptFail+
-      '</td><td>'+r.reconnectSuccess+'/'+r.reconnectAttempt+'</td><td>'+(r.reconnectAttempt?r.reconnectPct+'%':'-')+
-      '</td><td>'+r.closeUnexpected+'</td><td>'+r.messageSent+'</td><td>'+r.sendAskOk+'</td><td>'+r.sendSkippedDisconnected+'</td><td>'+r.sendAckOk+'</td><td>'+r.sendAckTimeout+'</td><td>'+fmtMs(r.roundTripP95)+
-      '</td><td>'+fmtMs(r.roundTripP99)+'</td><td>'+r.checksPct+'%</td></tr>';
+      '</td><td>'+r.reconnectSuccess+'/'+r.reconnectAttempt+
+      '</td><td>'+r.closeUnexpected+'</td><td>'+r.messageSent+'</td><td>'+dlv+' ('+dPct+')</td><td>'+fail+'</td><td>'+r.sendSkippedDisconnected+'</td><td>'+fmtMs(r.deliverP95!=null?r.deliverP95:r.roundTripP95)+
+      '</td><td>'+fmtMs(r.deliverP99!=null?r.deliverP99:r.roundTripP99)+'</td><td>'+r.checksPct+'%</td></tr>';
   }
   return h+'</tbody></table>';
 }
@@ -285,14 +310,14 @@ function render(){
   let h=renderLatest(LATEST);
   if(HISTORY.length){
     h+='<h2>Xu hướng qua các lần chạy</h2>';
-    h+=lineChart('Round-trip latency p95 (ms)',[
-      {label:'round-trip p95',color:'#58a6ff',get:r=>r.roundTripP95},
-      {label:'send-ack p95',color:'#3fb950',get:r=>r.sendAckP95},
+    h+=lineChart('Độ trễ giao tin p95 / p99 (ms) — thời gian tới khi tin SENT',[
+      {label:'giao tin p95',color:'#58a6ff',get:r=>r.deliverP95!=null?r.deliverP95:r.roundTripP95},
+      {label:'giao tin p99',color:'#bc8cff',get:r=>r.deliverP99!=null?r.deliverP99:r.roundTripP99},
     ]);
-    h+=lineChart('Lỗi & timeout (count)',[
+    h+=lineChart('Lỗi (count)',[
       {label:'connect_error',color:'#f85149',get:r=>r.connectError},
       {label:'connect_attempt_fail',color:'#ff7b72',get:r=>r.connectAttemptFail},
-      {label:'send_ack_timeout',color:'#d29922',get:r=>r.sendAckTimeout},
+      {label:'tin thất bại',color:'#d29922',get:r=>r.msgFailed!=null?r.msgFailed:0},
     ]);
     h+=lineChart('Reconnect recovery (%)',[
       {label:'reconnect success %',color:'#3fb950',get:r=>r.reconnectPct||0},

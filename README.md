@@ -2,12 +2,24 @@
 
 Stress-test the deployed chat backend (Cloud Run) over **raw WebSocket** with a
 hand-rolled **Engine.IO v4 + Socket.IO** client (no socket.io-client, no
-Artillery). Two profiles:
+Artillery).
 
+**Kịch bản khớp luồng FE thật** (`app-chat-fe` → `useMessageStore.sendMessage`):
+sinh `id = new ObjectId()` → `emit("message:send", { roomId, type, content,
+replyTo, id })` **không kèm ack** → coi là **gửi thành công** khi nhận
+`message:upsert` echo cùng `id` **trong ≤ `DELIVER_WINDOW_MS` (mặc định 15s)**;
+quá hạn → **FAILED** (đúng như `autoFailIfUnsent(roomId, id, 15000)` của FE).
+Vì vậy "số tin gửi thành công" đo bằng **upsert echo ≤15s**, KHÔNG phải ack.
+
+> ⚠️ Event thật là `message:send`. Bản cũ dùng `send_ask` — event này **không
+> tồn tại** ở BE socket gateway, nên không phản ánh luồng thực tế.
+
+Two profiles:
+
+- **rate** (mặc định) — `constant-arrival-rate` at `RATE` msg/s for `DURATION` →
+  đo **kết quả thực tế**: % tin gửi thành công + độ trễ giao tin ở tải thật.
 - **burst** — `USER_COUNT` sockets all join one room and **send a message at the
-  same instant** → đánh giá sức chịu tải khi 1000 người gửi cùng lúc.
-- **rate** — `constant-arrival-rate` at `RATE` req/s for `DURATION` → đo
-  throughput bền vững / tìm cực hệ thống (vd 100 req/s).
+  same instant** → đánh giá sức chịu tải đỉnh khi N người gửi cùng lúc.
 
 ```
                   ┌───────────────┐
@@ -42,9 +54,9 @@ docker compose up -d nginx redis
 .\scripts\bootstrap.ps1
 
 # 2. Run a test (prepare → k6 → build report → mở HTML)
-.\scripts\run-test.ps1                                   # burst, USER_COUNT từ .env
-$env:MODE='rate'; $env:RATE=100; $env:DURATION='10s'; .\scripts\run-test.ps1
-$env:USER_COUNT=50; .\scripts\run-test.ps1               # burst nhỏ để smoke
+.\scripts\run-test.ps1                                   # rate (mặc định), từ .env
+$env:MODE='rate'; $env:RATE=50; $env:DURATION='60s'; .\scripts\run-test.ps1
+$env:MODE='burst'; $env:USER_COUNT=500; .\scripts\run-test.ps1  # burst đỉnh
 
 # 3. Cleanup (drop loadtest users + rooms)
 .\scripts\reset.ps1 -DryRun   # preview
@@ -81,17 +93,20 @@ HTML tĩnh bằng browser, **không cần FE/server**).
 
 | Var | Default | Meaning |
 |---|---|---|
-| `MODE` | `burst` | `burst` (1000 cùng lúc) hoặc `rate` (RATE req/s) |
-| `USER_COUNT` | 1000 | Số VU = số socket (burst) |
+| `MODE` | `rate` | `rate` (RATE msg/s — đo thực tế) hoặc `burst` (N cùng lúc) |
+| `SEND_EVENT` | `message:send` | Event gửi tin **thật** của FE (socketEvent.MSGSEND) |
+| `DELIVER_WINDOW_MS` | 15000 | Hạn nhận `message:upsert` echo để tính **gửi thành công** (= `autoFailIfUnsent` của FE) |
+| `REQUEST_ACK` | 0 | `1` = đo thêm độ trễ ack gateway (chẩn đoán); `0` = giống FE (không ack) |
+| `RATE` | 20 | Tin/giây (mode `rate`) |
+| `DURATION` | `60s` | Thời lượng (mode `rate`) — 20/s × 60s = 1200 tin |
+| `PRE_VUS` / `MAX_VUS` | 150 / 500 | VU pool cho `constant-arrival-rate` (peak ≈ RATE × 15s) |
+| `USER_COUNT` | 500 | Pool user (rate dùng lại); = số VU/socket khi `burst` |
 | `RAMP_DURATION` | 30 | Giây rải VU connect (burst) — cho Cloud Run autoscale |
-| `CONNECT_MARGIN_MS` | 5000 | Đệm trước `fireAt` để mọi socket kịp join (burst) |
+| `CONNECT_MARGIN_MS` | 15000 | Đệm trước `fireAt` để mọi socket kịp join (burst) |
 | `THINK_AFTER_GO` | 2 | Giây giữ socket sau khi gửi rồi đóng |
-| `RATE` | 100 | Request/giây (mode `rate`) |
-| `DURATION` | `10s` | Thời lượng (mode `rate`) — 100/s × 10s ≈ 1000 req |
-| `PRE_VUS` / `MAX_VUS` | 200 / 600 | VU pool cho `constant-arrival-rate` |
+| `MSGS_PER_VU` | 1 | Số tin mỗi VU gửi (burst). 0 = chỉ giữ kết nối, không gửi |
 | `SOCKET_BASE` | `ws://nginx:8080` | WS entry |
 | `SOCKET_NAMESPACE` | `/chat` | Socket.IO namespace |
-| `SEND_EVENT` | `send_ask` | Event gửi message; nhận `message:upsert` và match cùng id thì tăng `ws_send_ask_ok` |
 
 ---
 
@@ -126,13 +141,25 @@ test/
 
 ## Metrics (k6 native + checks)
 
-`Trend`: `ws_connect_time`, `ws_join_time`, `ws_send_ack_time`,
-`ws_message_round_trip` (round-trip = `send_ask` → own `message:upsert` echo
-cùng message id). `Counter`: `ws_connected`, `ws_connect_error`, `ws_exception`,
-`ws_join_ack_ok|fail|no_ack`, `ws_fired`, `ws_message_sent`,
-`ws_send_ask_ok`, `ws_send_ack_ok|fail|timeout`, `ws_upsert_timeout`,
-`ws_disconnected`.
-`check()` + `thresholds` (`checks: ['rate>0.90']`) gate the run pass/fail.
+**Số kết nối thật** = `ws_connected` (socket hoàn tất EIO handshake + CONNECT
+`/chat`) và `ws_join_ack_ok` (join room OK).
+
+**Số tin gửi thành công (FE-accurate)** = `ws_msg_delivered` — tin nhận được
+`message:upsert` echo cùng `id` trong ≤ `DELIVER_WINDOW_MS`. Ngược lại
+`ws_msg_failed` (quá hạn hoặc socket đóng trước khi có echo). Luôn đúng:
+`ws_message_sent = ws_msg_delivered + ws_msg_failed` (tin emit hụt vì socket đã
+đóng đếm riêng ở `ws_send_skipped_disconnected`, không tính vào `ws_message_sent`).
+(`ws_send_ask_ok`/`ws_upsert_timeout` giữ làm alias cho HTML report cũ.)
+
+**Độ trễ đầy đủ** (`avg / min / med / p95 / p99 / max`) cho mọi chặng —
+`Trend`: `ws_connect_time`, `ws_join_time`, `ws_msg_deliver_time` (= send →
+`message:upsert` echo, **độ trễ giao tin UX thật**), `ws_message_round_trip`
+(alias của deliver), và `ws_send_ack_time` (chỉ khi `REQUEST_ACK=1`).
+
+`Counter` khác: `ws_connect_error`, `ws_connect_attempt_fail`, `ws_exception`,
+`ws_fired`, `ws_close_unexpected`, `ws_server_disconnect`,
+`ws_reconnect_attempt|success|exhausted`.
+`check()` + `thresholds` (`checks: ['rate>0.90']`) gate connect/join/upgrade.
 
 Each run → `k6/reports/run-<RUN_ID>.json`; `build-report.js` aggregates all runs
 into `index.html` (latest-run cards + history table + SVG trend charts).
