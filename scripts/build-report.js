@@ -39,10 +39,11 @@ function buildHistory(runs) {
     .map((r) => {
       const c = r.counters || {};
       const t = r.trends || {};
-      const rt = t.ws_message_round_trip || {};
-      const sa = t.ws_send_ack_time || {};
+      const rt = normalizeTrend(t.ws_message_round_trip || {});
+      const sa = normalizeTrend(t.ws_send_ack_time || {});
       const reconnectAttempt = c.ws_reconnect_attempt || 0;
       const reconnectSuccess = c.ws_reconnect_success || 0;
+      const sendAskOk = sendAskOkOf(c);
       return {
         runId: r.runId,
         timestamp: r.timestamp,
@@ -54,7 +55,7 @@ function buildHistory(runs) {
         connectError: c.ws_connect_error || 0,
         connectAttemptFail: c.ws_connect_attempt_fail || 0,
         messageSent: c.ws_message_sent || 0,
-        sendSuccess: c.ws_send_success || 0,
+        sendAskOk,
         sendAckOk: c.ws_send_ack_ok || 0,
         sendAckFail: c.ws_send_ack_fail || 0,
         sendAckTimeout: c.ws_send_ack_timeout || 0,
@@ -67,13 +68,57 @@ function buildHistory(runs) {
           ? Math.round((reconnectSuccess / reconnectAttempt) * 1000) / 10
           : 0,
         sendSkippedDisconnected: c.ws_send_skipped_disconnected || 0,
-        sendAckP95: sa.p95 || 0,
-        roundTripP95: rt.p95 || 0,
-        roundTripP99: rt.p99 || 0,
-        roundTripMax: rt.max || 0,
+        sendAckP95: sa.p95 ?? null,
+        roundTripP95: rt.p95 ?? null,
+        roundTripP99: rt.p99 ?? null,
+        roundTripMax: rt.max ?? null,
       };
     })
     .sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)));
+}
+
+function hasOwn(o, k) {
+  return Object.prototype.hasOwnProperty.call(o, k);
+}
+
+function sendAskOkOf(c) {
+  if (hasOwn(c, 'ws_send_ask_ok')) return c.ws_send_ask_ok || 0;
+  if (hasOwn(c, 'ws_send_success')) return c.ws_send_success || 0;
+  if (hasOwn(c, 'ws_upsert_timeout')) {
+    return Math.max(0, (c.ws_message_sent || 0) - (c.ws_upsert_timeout || 0));
+  }
+  return 0;
+}
+
+function normalizeTrend(t) {
+  if (!t || typeof t !== 'object') return {};
+  const out = { ...t };
+  const keys = ['avg', 'med', 'p95', 'p99', 'max'];
+  const hasCount = Object.prototype.hasOwnProperty.call(out, 'count');
+  const allZero = keys.every((k) => out[k] === 0);
+  if ((hasCount && out.count === 0) || (!hasCount && allZero)) {
+    out.count = 0;
+    for (const k of keys) out[k] = null;
+  }
+  return out;
+}
+
+function normalizeRun(r) {
+  if (!r) return null;
+  const trends = r.trends || {};
+  const counters = r.counters || {};
+  return {
+    ...r,
+    counters: {
+      ...counters,
+      ws_send_ask_ok: sendAskOkOf(counters),
+    },
+    trends: {
+      ...trends,
+      ws_send_ack_time: normalizeTrend(trends.ws_send_ack_time || {}),
+      ws_message_round_trip: normalizeTrend(trends.ws_message_round_trip || {}),
+    },
+  };
 }
 
 function esc(s) {
@@ -84,7 +129,7 @@ function esc(s) {
 
 function renderHtml(runs) {
   const history = buildHistory(runs);
-  const latestFull = pickLatestFull(runs, history);
+  const latestFull = normalizeRun(pickLatestFull(runs, history));
   // Inline data — page works fully offline from file://.
   const dataScript = `<script>const HISTORY=${JSON.stringify(history)};const LATEST=${JSON.stringify(
     latestFull,
@@ -146,6 +191,13 @@ function fmtMs(n){if(n==null)return '-';return n>=1000?(n/1000).toFixed(2)+'s':M
 function pct(n,d){return d?((n/d)*100).toFixed(1)+'%':'-';}
 function cls(v,good,warn){return v>=good?'ok':v>=warn?'warn':'bad';}
 function el(html){const t=document.createElement('template');t.innerHTML=html.trim();return t.content.firstChild;}
+function hasOwn(o,k){return Object.prototype.hasOwnProperty.call(o,k);}
+function sendAskOkOf(c){
+  if(hasOwn(c,'ws_send_ask_ok')) return c.ws_send_ask_ok||0;
+  if(hasOwn(c,'ws_send_success')) return c.ws_send_success||0;
+  if(hasOwn(c,'ws_upsert_timeout')) return Math.max(0,(c.ws_message_sent||0)-(c.ws_upsert_timeout||0));
+  return 0;
+}
 
 function card(k,v,c){return '<div class="card"><div class="k">'+k+'</div><div class="v '+(c||'')+'">'+v+'</div></div>';}
 
@@ -154,7 +206,8 @@ function renderLatest(r){
   const c=r.counters,t=r.trends,cfg=r.config||{};
   const rt=t.ws_message_round_trip||{},sa=t.ws_send_ack_time||{},ct=t.ws_connect_time||{};
   const ackPct=c.ws_message_sent?(c.ws_send_ack_ok/c.ws_message_sent*100):0;
-  const successPct=c.ws_message_sent?((c.ws_send_success||0)/c.ws_message_sent*100):0;
+  const sendAskOk=sendAskOkOf(c);
+  const sendAskPct=c.ws_message_sent?(sendAskOk/c.ws_message_sent*100):0;
   const reconnPct=c.ws_reconnect_attempt?(c.ws_reconnect_success/c.ws_reconnect_attempt*100):0;
   const checksPct=(r.checks?r.checks.overallRate:0)*100;
   let h='';
@@ -172,7 +225,7 @@ function renderLatest(r){
   h+=card('Server disconnect', c.ws_server_disconnect||0, (c.ws_server_disconnect||0)===0?'ok':'bad');
   h+='</div><div class="cards" style="margin-top:12px">';
   h+=card('Messages sent', c.ws_message_sent);
-  h+=card('Send success', (c.ws_send_success||0)+' ('+pct(c.ws_send_success||0,c.ws_message_sent)+')', cls(successPct,90,50));
+  h+=card('Send ask ok', sendAskOk+' ('+pct(sendAskOk,c.ws_message_sent)+')', cls(sendAskPct,90,50));
   h+=card('Send skipped closed', c.ws_send_skipped_disconnected||0, (c.ws_send_skipped_disconnected||0)===0?'ok':'warn');
   h+=card('Send ack ok', c.ws_send_ack_ok+' ('+pct(c.ws_send_ack_ok,c.ws_message_sent)+')', cls(ackPct,90,50));
   h+=card('Send ack timeout', c.ws_send_ack_timeout, c.ws_send_ack_timeout===0?'ok':'bad');
@@ -190,12 +243,12 @@ function renderTable(hist){
   if(!hist.length) return '';
   let h='<h2>Lịch sử các lần chạy</h2><table><thead><tr>'+
     '<th>Thời gian</th><th>Mode</th><th>VUs</th><th>Connected</th><th>Conn.err</th><th>Attempt fail</th>'+
-    '<th>Reconn.</th><th>Reconn.%</th><th>Unexp.close</th><th>Sent</th><th>Success</th><th>Skip closed</th><th>Ack ok</th><th>Ack timeout</th><th>RT p95</th><th>RT p99</th><th>Checks</th></tr></thead><tbody>';
+    '<th>Reconn.</th><th>Reconn.%</th><th>Unexp.close</th><th>Sent</th><th>Ask ok</th><th>Skip closed</th><th>Ack ok</th><th>Ack timeout</th><th>RT p95</th><th>RT p99</th><th>Checks</th></tr></thead><tbody>';
   for(const r of hist){
     h+='<tr><td>'+new Date(r.timestamp).toLocaleString()+'</td><td>'+r.mode+'</td><td>'+r.userCount+
       '</td><td>'+r.connected+'</td><td>'+r.connectError+'</td><td>'+r.connectAttemptFail+
       '</td><td>'+r.reconnectSuccess+'/'+r.reconnectAttempt+'</td><td>'+(r.reconnectAttempt?r.reconnectPct+'%':'-')+
-      '</td><td>'+r.closeUnexpected+'</td><td>'+r.messageSent+'</td><td>'+r.sendSuccess+'</td><td>'+r.sendSkippedDisconnected+'</td><td>'+r.sendAckOk+'</td><td>'+r.sendAckTimeout+'</td><td>'+fmtMs(r.roundTripP95)+
+      '</td><td>'+r.closeUnexpected+'</td><td>'+r.messageSent+'</td><td>'+r.sendAskOk+'</td><td>'+r.sendSkippedDisconnected+'</td><td>'+r.sendAckOk+'</td><td>'+r.sendAckTimeout+'</td><td>'+fmtMs(r.roundTripP95)+
       '</td><td>'+fmtMs(r.roundTripP99)+'</td><td>'+r.checksPct+'%</td></tr>';
   }
   return h+'</tbody></table>';
@@ -207,7 +260,7 @@ function lineChart(title, series){
   if(data.length<1) return '';
   const W=1040,H=180,pad=34;
   let max=1;
-  for(const s of series) for(const r of data){const v=s.get(r);if(v>max)max=v;}
+  for(const s of series) for(const r of data){const v=s.get(r);if(v!=null&&v>max)max=v;}
   function x(i){return pad+(data.length<=1?0:(i*(W-2*pad)/(data.length-1)));}
   function y(v){return H-pad-(v/max)*(H-2*pad);}
   let svg='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">';
@@ -215,9 +268,10 @@ function lineChart(title, series){
   svg+='<text x="2" y="14" fill="#8b90a0" font-size="11">'+Math.round(max)+'</text>';
   for(const s of series){
     let d='';
-    data.forEach((r,i)=>{d+=(i?'L':'M')+x(i).toFixed(1)+' '+y(s.get(r)).toFixed(1)+' ';});
+    data.forEach((r,i)=>{const v=s.get(r);if(v==null)return;d+=(d?'L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1)+' ';});
+    if(!d) continue;
     svg+='<path d="'+d+'" fill="none" stroke="'+s.color+'" stroke-width="2"/>';
-    data.forEach((r,i)=>{svg+='<circle cx="'+x(i).toFixed(1)+'" cy="'+y(s.get(r)).toFixed(1)+'" r="2.5" fill="'+s.color+'"/>';});
+    data.forEach((r,i)=>{const v=s.get(r);if(v==null)return;svg+='<circle cx="'+x(i).toFixed(1)+'" cy="'+y(v).toFixed(1)+'" r="2.5" fill="'+s.color+'"/>';});
   }
   svg+='</svg>';
   let lg='<div class="lg">';

@@ -30,7 +30,7 @@ function fakeRun(over = {}) {
       ws_reconnect_exhausted: 2,
       ws_send_skipped_disconnected: 6,
       ws_message_sent: 940,
-      ws_send_success: 910,
+      ws_send_ask_ok: 910,
       ws_send_ack_ok: 900,
       ws_send_ack_fail: 10,
       ws_send_ack_timeout: 30,
@@ -54,7 +54,7 @@ test('buildHistory extracts compact per-run summary fields', () => {
   assert.equal(h.mode, 'burst');
   assert.equal(h.userCount, 1000);
   assert.equal(h.roundTripP95, 1700);
-  assert.equal(h.sendSuccess, 910);
+  assert.equal(h.sendAskOk, 910);
   assert.equal(h.sendAckOk, 900);
   assert.equal(h.connectError, 50);
   assert.equal(h.connectAttemptFail, 120);
@@ -76,6 +76,46 @@ test('renderHtml is self-contained and inlines the run data', () => {
   assert.ok(html.includes('1700')); // round-trip p95
   assert.ok(html.includes('burst'));
   assert.ok(html.includes('Reconnect rate'));
+});
+
+test('buildHistory keeps missing latency samples as null, not zero', () => {
+  const run = fakeRun({
+    trends: {
+      ws_connect_time: {},
+      ws_join_time: {},
+      ws_send_ack_time: { count: 0, p95: null, p99: null },
+      ws_message_round_trip: { count: 0, p95: null, p99: null },
+    },
+  });
+  const hist = buildHistory([run]);
+  assert.equal(hist[0].roundTripP95, null);
+  assert.equal(hist[0].sendAckP95, null);
+});
+
+test('buildHistory treats legacy all-zero latency trends as missing samples', () => {
+  const run = fakeRun({
+    trends: {
+      ws_connect_time: { avg: 100, p95: 200 },
+      ws_join_time: { avg: 50, p95: 120 },
+      ws_send_ack_time: { avg: 0, med: 0, p95: 0, p99: 0, max: 0 },
+      ws_message_round_trip: { avg: 0, med: 0, p95: 0, p99: 0, max: 0 },
+    },
+  });
+  const hist = buildHistory([run]);
+  assert.equal(hist[0].roundTripP95, null);
+  assert.equal(hist[0].sendAckP95, null);
+});
+
+test('buildHistory infers sendAskOk from legacy upsert timeout counters', () => {
+  const run = fakeRun({
+    counters: {
+      ws_message_sent: 100,
+      ws_upsert_timeout: 12,
+      ws_send_ack_ok: 80,
+    },
+  });
+  const hist = buildHistory([run]);
+  assert.equal(hist[0].sendAskOk, 88);
 });
 
 test('renderHtml handles an empty history without throwing', () => {

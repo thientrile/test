@@ -129,7 +129,7 @@ const cJoinAckFail = new Counter('ws_join_ack_fail');
 const cJoinNoAck = new Counter('ws_join_no_ack');
 const cFired = new Counter('ws_fired');
 const cMsgSent = new Counter('ws_message_sent');
-const cSendSuccess = new Counter('ws_send_success');
+const cSendAskOk = new Counter('ws_send_ask_ok');
 const cSendSkippedDisconnected = new Counter('ws_send_skipped_disconnected');
 const cSendAckOk = new Counter('ws_send_ack_ok');
 const cSendAckFail = new Counter('ws_send_ack_fail');
@@ -403,12 +403,12 @@ function runSocketAttempt(data, user, token, roomId, holdDeadline, attemptNo) {
             // Broadcast to every room member — only match echoes of OUR sends
             // (by the client id we generated) to measure true round-trip.
             const m = p.args && p.args[0] ? p.args[0] : null;
-            const mid = m ? String(m._id || m.id || '') : '';
+            const mid = messageIdOf(m);
             if (mid && rtPending[mid] != null) {
               mRoundTrip.add(Date.now() - rtPending[mid]);
               delete rtPending[mid];
               upsertCount += 1;
-              cSendSuccess.add(1);
+              cSendAskOk.add(1);
             }
           }
           break;
@@ -473,6 +473,21 @@ function runSocketAttempt(data, user, token, roomId, holdDeadline, attemptNo) {
   };
 }
 
+function messageIdOf(m) {
+  if (!m || typeof m !== 'object') return '';
+  const nested = m.message && typeof m.message === 'object' ? m.message : null;
+  return String(
+    m._id ||
+      m.id ||
+      m.messageId ||
+      m.msgId ||
+      m.clientMsgId ||
+      m.clientMessageId ||
+      (nested ? nested._id || nested.id || nested.messageId || nested.msgId || nested.clientMsgId || nested.clientMessageId : '') ||
+      '',
+  );
+}
+
 // ---------------------------------------------------------------------------
 // handleSummary — write the machine-readable run file + a concise console
 // summary. build-report.js aggregates reports/run-*.json into the HTML report.
@@ -490,12 +505,14 @@ function extractRun(data) {
   const counter = (name) => (M[name] && M[name].values ? M[name].values.count || 0 : 0);
   const trend = (name) => {
     const v = M[name] && M[name].values ? M[name].values : {};
+    const count = v.count || 0;
     return {
-      avg: round(v.avg),
-      med: round(v.med),
-      p95: round(v['p(95)']),
-      p99: round(v['p(99)']),
-      max: round(v.max),
+      count,
+      avg: count ? round(v.avg) : null,
+      med: count ? round(v.med) : null,
+      p95: count ? round(v['p(95)']) : null,
+      p99: count ? round(v['p(99)']) : null,
+      max: count ? round(v.max) : null,
     };
   };
 
@@ -545,7 +562,7 @@ function extractRun(data) {
       ws_join_no_ack: counter('ws_join_no_ack'),
       ws_fired: counter('ws_fired'),
       ws_message_sent: counter('ws_message_sent'),
-      ws_send_success: counter('ws_send_success'),
+      ws_send_ask_ok: counter('ws_send_ask_ok'),
       ws_send_skipped_disconnected: counter('ws_send_skipped_disconnected'),
       ws_send_ack_ok: counter('ws_send_ack_ok'),
       ws_send_ack_fail: counter('ws_send_ack_fail'),
@@ -571,7 +588,7 @@ function walkChecks(group, prefix, out) {
 }
 
 function round(n) {
-  if (n == null || Number.isNaN(n)) return 0;
+  if (n == null || Number.isNaN(n)) return null;
   return Math.round(n * 100) / 100;
 }
 
@@ -581,6 +598,7 @@ function consoleSummary(run) {
   const sa = run.trends.ws_send_ack_time;
   const cfg = run.config || {};
   const pct = (n, d) => (d ? ((n / d) * 100).toFixed(1) : '0.0');
+  const ms = (n) => (n == null ? 'n/a' : String(n));
   const L = [];
   L.push('');
   L.push('================ k6 LOADTEST SUMMARY ================');
@@ -600,7 +618,7 @@ function consoleSummary(run) {
   L.push('  SEND');
   L.push(`    fired:              ${c.ws_fired}`);
   L.push(`    message_sent:       ${c.ws_message_sent}`);
-  L.push(`    send_success:      ${c.ws_send_success} (${pct(c.ws_send_success, c.ws_message_sent)}%)`);
+  L.push(`    send_ask_ok:        ${c.ws_send_ask_ok} (${pct(c.ws_send_ask_ok, c.ws_message_sent)}%)`);
   L.push(`    skipped_closed:     ${c.ws_send_skipped_disconnected}`);
   L.push(`    send_ack_ok:        ${c.ws_send_ack_ok} (${pct(c.ws_send_ack_ok, c.ws_message_sent)}%)`);
   L.push(`    send_ack_fail:      ${c.ws_send_ack_fail}`);
@@ -616,8 +634,8 @@ function consoleSummary(run) {
   L.push(`    success:            ${c.ws_reconnect_success} (${pct(c.ws_reconnect_success, c.ws_reconnect_attempt)}%)`);
   L.push(`    exhausted:          ${c.ws_reconnect_exhausted}`);
   L.push('  LATENCY (ms)');
-  L.push(`    send_ack:          p95=${sa.p95}  p99=${sa.p99}  max=${sa.max}`);
-  L.push(`    round_trip:        p95=${rt.p95}  p99=${rt.p99}  max=${rt.max}`);
+  L.push(`    send_ack:          count=${sa.count || 0}  p95=${ms(sa.p95)}  p99=${ms(sa.p99)}  max=${ms(sa.max)}`);
+  L.push(`    round_trip:        count=${rt.count || 0}  p95=${ms(rt.p95)}  p99=${ms(rt.p99)}  max=${ms(rt.max)}`);
   L.push(`  checks pass: ${(run.checks.overallRate * 100).toFixed(1)}%`);
   L.push(`  → reports/run-${run.runId}.json`);
   L.push('=====================================================');

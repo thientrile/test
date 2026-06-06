@@ -91,7 +91,7 @@ HTML tĩnh bằng browser, **không cần FE/server**).
 | `PRE_VUS` / `MAX_VUS` | 200 / 600 | VU pool cho `constant-arrival-rate` |
 | `SOCKET_BASE` | `ws://nginx:8080` | WS entry |
 | `SOCKET_NAMESPACE` | `/chat` | Socket.IO namespace |
-| `SEND_EVENT` | `send_ask` | Event gửi message; nhận `message:upsert` và match cùng id thì tính gửi thành công |
+| `SEND_EVENT` | `send_ask` | Event gửi message; nhận `message:upsert` và match cùng id thì tăng `ws_send_ask_ok` |
 
 ---
 
@@ -130,7 +130,7 @@ test/
 `ws_message_round_trip` (round-trip = `send_ask` → own `message:upsert` echo
 cùng message id). `Counter`: `ws_connected`, `ws_connect_error`, `ws_exception`,
 `ws_join_ack_ok|fail|no_ack`, `ws_fired`, `ws_message_sent`,
-`ws_send_success`, `ws_send_ack_ok|fail|timeout`, `ws_upsert_timeout`,
+`ws_send_ask_ok`, `ws_send_ack_ok|fail|timeout`, `ws_upsert_timeout`,
 `ws_disconnected`.
 `check()` + `thresholds` (`checks: ['rate>0.90']`) gate the run pass/fail.
 

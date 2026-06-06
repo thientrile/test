@@ -38,6 +38,21 @@ function oid() {
   return ts + rest;
 }
 
+function messageIdOf(m) {
+  if (!m || typeof m !== 'object') return '';
+  const nested = m.message && typeof m.message === 'object' ? m.message : null;
+  return String(
+    m._id ||
+      m.id ||
+      m.messageId ||
+      m.msgId ||
+      m.clientMsgId ||
+      m.clientMessageId ||
+      (nested ? nested._id || nested.id || nested.messageId || nested.msgId || nested.clientMsgId || nested.clientMessageId : '') ||
+      '',
+  );
+}
+
 export default function () {
   const user = USERS[0];
   const token = String(user.accessToken || '').replace(/^"|"$/g, '').trim();
@@ -99,13 +114,13 @@ export default function () {
         case 'event':
           if (p.event === 'message:upsert') {
             const m = p.args && p.args[0] ? p.args[0] : null;
-            const receivedMsgId = m ? String(m._id || m.id || '') : '';
+            const receivedMsgId = messageIdOf(m);
             if (receivedMsgId === sentMsgId) {
               upsertSeen = true;
               console.log('[probe] message:upsert matched sent id: ' + receivedMsgId);
               socket.close();
             } else {
-              console.log('[probe] message:upsert ignored: ' + JSON.stringify(p.args[0]));
+              console.log(`[probe] message:upsert ignored: received=${receivedMsgId || '<missing>'} sent=${sentMsgId} payload=${JSON.stringify(p.args[0])}`);
             }
           }
           break;
