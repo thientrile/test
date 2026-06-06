@@ -183,10 +183,13 @@ const cReconnectExhausted = new Counter('ws_reconnect_exhausted');
 
 // Record one delivered message (upsert echo received within DELIVER_WINDOW_MS).
 function markDelivered(latencyMs) {
+  // Clamp: a negative round-trip is physically impossible (rare cross-callback
+  // clock skew in the k6 ws event loop) — don't let it poison min/avg.
+  const lat = latencyMs > 0 ? latencyMs : 0;
   cMsgDelivered.add(1);
   cSendAskOk.add(1); // legacy alias for the HTML report
-  mDeliverTime.add(latencyMs);
-  mRoundTrip.add(latencyMs);
+  mDeliverTime.add(lat);
+  mRoundTrip.add(lat);
 }
 
 // Record one failed message (no upsert echo within DELIVER_WINDOW_MS, or the
@@ -210,7 +213,10 @@ const burstMaxDuration =
   30;
 
 export const options = {
-  summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(95)', 'p(99)'],
+  // 'count' MUST be here: k6 only puts the listed stats into a Trend's summary
+  // `values` object. Without 'count', handleSummary sees no count and every
+  // latency reads as 0 samples even though the metric recorded data.
+  summaryTrendStats: ['count', 'avg', 'min', 'med', 'max', 'p(95)', 'p(99)'],
   thresholds: {
     checks: ['rate>0.90'],
   },
@@ -452,14 +458,14 @@ function runSocketAttempt(data, user, token, roomId, holdDeadline, attemptNo) {
         case 'connect': {
           connected = true;
           cConnected.add(1);
-          mConnectTime.add(Date.now() - t0);
+          mConnectTime.add(Math.max(0, Date.now() - t0));
           const joinAt = Date.now();
           emit('join', { roomId: roomId }, function (ackArgs) {
             joined = true;
             const ok = ackArgs && ackArgs[0] ? ackArgs[0].ok !== false : true;
             if (ok) cJoinAckOk.add(1);
             else cJoinAckFail.add(1);
-            mJoinTime.add(Date.now() - joinAt);
+            mJoinTime.add(Math.max(0, Date.now() - joinAt));
           });
           later(function () {
             if (!joined) cJoinNoAck.add(1);
@@ -584,15 +590,19 @@ function extractRun(data) {
   const counter = (name) => (M[name] && M[name].values ? M[name].values.count || 0 : 0);
   const trend = (name) => {
     const v = M[name] && M[name].values ? M[name].values : {};
-    const count = v.count || 0;
+    // Has samples if k6 gave us a count, OR (older/looser builds) any stat is a
+    // real number. Don't gate purely on count — some k6 versions omit it.
+    const hasData =
+      (v.count || 0) > 0 ||
+      ['avg', 'med', 'max', 'min', 'p(95)', 'p(99)'].some((k) => typeof v[k] === 'number');
     return {
-      count,
-      avg: count ? round(v.avg) : null,
-      min: count ? round(v.min) : null,
-      med: count ? round(v.med) : null,
-      p95: count ? round(v['p(95)']) : null,
-      p99: count ? round(v['p(99)']) : null,
-      max: count ? round(v.max) : null,
+      count: v.count != null ? v.count : hasData ? null : 0,
+      avg: hasData ? round(v.avg) : null,
+      min: hasData ? round(v.min) : null,
+      med: hasData ? round(v.med) : null,
+      p95: hasData ? round(v['p(95)']) : null,
+      p99: hasData ? round(v['p(99)']) : null,
+      max: hasData ? round(v.max) : null,
     };
   };
 

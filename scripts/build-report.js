@@ -45,10 +45,9 @@ function buildHistory(runs) {
       const reconnectAttempt = c.ws_reconnect_attempt || 0;
       const reconnectSuccess = c.ws_reconnect_success || 0;
       const sendAskOk = sendAskOkOf(c);
-      const msgDelivered = hasOwn(c, 'ws_msg_delivered') ? c.ws_msg_delivered || 0 : sendAskOk;
-      const msgFailed = hasOwn(c, 'ws_msg_failed')
-        ? c.ws_msg_failed || 0
-        : c.ws_upsert_timeout || 0;
+      const outcome = msgOutcome(c, dl);
+      const msgDelivered = outcome.delivered;
+      const msgFailed = outcome.failed;
       return {
         runId: r.runId,
         timestamp: r.timestamp,
@@ -97,6 +96,23 @@ function sendAskOkOf(c) {
     return Math.max(0, (c.ws_message_sent || 0) - (c.ws_upsert_timeout || 0));
   }
   return 0;
+}
+
+// Delivered/failed from MEASURED data only. Priority: explicit ws_msg_delivered
+// counter → derive from ws_msg_failed → number of real upsert-echo latency
+// samples (deliverTrend.count). Never `sent - upsert_timeout`, which fabricates
+// a 100% success when a run carries no delivery measurement at all.
+function msgOutcome(c, deliverTrend) {
+  const sent = (c && c.ws_message_sent) || 0;
+  const deliverSamples = (deliverTrend && deliverTrend.count) || 0;
+  let delivered;
+  if (hasOwn(c, 'ws_msg_delivered')) delivered = c.ws_msg_delivered || 0;
+  else if (hasOwn(c, 'ws_msg_failed')) delivered = Math.max(0, sent - (c.ws_msg_failed || 0));
+  else delivered = deliverSamples;
+  const failed = hasOwn(c, 'ws_msg_failed')
+    ? c.ws_msg_failed || 0
+    : Math.max(0, sent - delivered);
+  return { delivered, failed };
 }
 
 function normalizeTrend(t) {
@@ -214,6 +230,15 @@ function sendAskOkOf(c){
   if(hasOwn(c,'ws_upsert_timeout')) return Math.max(0,(c.ws_message_sent||0)-(c.ws_upsert_timeout||0));
   return 0;
 }
+function msgOutcome(c,dl){
+  const sent=(c&&c.ws_message_sent)||0, samples=(dl&&dl.count)||0;
+  let delivered;
+  if(hasOwn(c,'ws_msg_delivered')) delivered=c.ws_msg_delivered||0;
+  else if(hasOwn(c,'ws_msg_failed')) delivered=Math.max(0,sent-(c.ws_msg_failed||0));
+  else delivered=samples;
+  const failed=hasOwn(c,'ws_msg_failed')?(c.ws_msg_failed||0):Math.max(0,sent-delivered);
+  return {delivered,failed};
+}
 
 function card(k,v,c){return '<div class="card"><div class="k">'+k+'</div><div class="v '+(c||'')+'">'+v+'</div></div>';}
 
@@ -221,10 +246,14 @@ function renderLatest(r){
   if(!r) return '<div class="empty">Chưa có dữ liệu. Chạy một test rồi mở lại.</div>';
   const c=r.counters,t=r.trends,cfg=r.config||{};
   const rt=t.ws_message_round_trip||{},sa=t.ws_send_ack_time||{},ct=t.ws_connect_time||{};
-  const dl=t.ws_msg_deliver_time||rt, jt=t.ws_join_time||{};
+  const dl=t.ws_msg_deliver_time||rt||{}, jt=t.ws_join_time||{};
   const ackPct=c.ws_message_sent?(c.ws_send_ack_ok/c.ws_message_sent*100):0;
-  const delivered=hasOwn(c,'ws_msg_delivered')?(c.ws_msg_delivered||0):sendAskOkOf(c);
-  const failed=hasOwn(c,'ws_msg_failed')?(c.ws_msg_failed||0):(c.ws_upsert_timeout||0);
+  // Delivered/failed are driven by MEASURED data, never fabricated. If the
+  // explicit counter is missing, fall back to the actual number of upsert-echo
+  // latency samples (dl.count) so the card can NEVER show 100% while the
+  // latency table shows n=0 (the old sent-minus-upsert_timeout fallback could).
+  const measured=msgOutcome(c,dl);
+  const delivered=measured.delivered, failed=measured.failed;
   const deliveredPct=c.ws_message_sent?(delivered/c.ws_message_sent*100):0;
   const reconnPct=c.ws_reconnect_attempt?(c.ws_reconnect_success/c.ws_reconnect_attempt*100):0;
   const checksPct=(r.checks?r.checks.overallRate:0)*100;
